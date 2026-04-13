@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"streaming/internal/storage/mongoDb"
 
-	movie_controller "streaming/internal/http-server/handlers/movies"
-	user_controller "streaming/internal/http-server/handlers/users"
+	"streaming/internal/http-server/routes"
+	"streaming/internal/storage/mongoDb"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,11 +18,8 @@ func main() {
 
 	client := mongoDb.Connect()
 
-	router.GET("/movies", movie_controller.GetMovies(client))
-	router.GET("/movie/:imdb_id", movie_controller.GetMovieById(client))
-	router.POST("/movie", movie_controller.AddMovie(client))
-	router.POST("/user/register", user_controller.RegisterUser(client))
-	router.POST("/user/login", user_controller.Login(client))
+	routes.SetupUnProtectedRoutes(router, client)
+	routes.SetupProtectedRoutes(router, client)
 
 	if err := router.Run(":8080"); err != nil {
 		fmt.Println("Faild to start server", err)

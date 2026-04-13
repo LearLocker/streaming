@@ -87,3 +87,43 @@ func AddMovie(client *mongo.Client) gin.HandlerFunc {
 
 	}
 }
+
+func ReviewUpdate(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		movieId := c.Param("imdb_id")
+		if movieId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Movie id is required"})
+			return
+		}
+
+		userId := c.Param("user_id")
+		if userId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User id is required"})
+			return
+		}
+
+		var req struct {
+			Review string `json:"review"`
+		}
+		var resp struct {
+			RankingName string `json:"ranking_name"`
+			Review      string `json:"review"`
+		}
+
+		if err := c.ShouldBind(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		sentiment, rankVal, err := GetReviewRanking(req.Review, client, c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error getting review ranking"})
+			return
+		}
+
+	}
+}
+
+func GetReviewRanking(review string, client *mongo.Client, c *gin.Context) (string, int, error) {
+	return "", 0, nil
+}
