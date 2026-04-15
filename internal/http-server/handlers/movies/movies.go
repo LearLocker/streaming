@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"streaming/internal/lib/jwt"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/tmc/langchaingo/llms/openai"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func GetMovies(client *mongo.Client) gin.HandlerFunc {
@@ -105,9 +108,9 @@ func ReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 			return
 		}
 
-		userId := c.Param("user_id")
-		if userId == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "User id is required"})
+		userId, err := jwt.GetUserIdFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
 			return
 		}
 
@@ -134,7 +137,10 @@ func ReviewUpdate(client *mongo.Client) gin.HandlerFunc {
 
 		update := bson.M{
 			"$set": bson.M{
-				"review": req.Review,
+				"review": bson.M{
+					"text":      req.Review,
+					"author_id": userId,
+				},
 				"ranking": bson.M{
 					"ranking_name":  sentiment,
 					"ranking_value": rankVal,
@@ -235,4 +241,136 @@ func GetRankings(client *mongo.Client) ([]models.Ranking, error) {
 	}
 
 	return rankings, nil
+}
+
+func GetRecommendedMovies(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		userId, err := jwt.GetUserIdFromContext(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		favoriteGenres, err := GetUsersFavouriteGenres(userId, client, c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		err = godotenv.Load("internal/config/.env")
+		if err != nil {
+			log.Println("Error loading .env file")
+		}
+
+		var recommendedMovieLimitVal int64
+		recommendedMovieLimitStr := os.Getenv("RECOMMENDED_MOVIE_LIMIT")
+
+		if recommendedMovieLimitStr != "" {
+			recommendedMovieLimitVal, _ = strconv.ParseInt(recommendedMovieLimitStr, 10, 64)
+		}
+
+		opts := options.Find()
+
+		opts.SetSort(bson.D{{Key: "ranking.ranking_value", Value: 1}})
+
+		opts.SetLimit(recommendedMovieLimitVal)
+
+		filter := bson.D{
+			{Key: "genre.genre_name", Value: bson.D{
+				{Key: "$in", Value: favoriteGenres},
+			}},
+		}
+
+		movieCollection := mongoDb.OpenCollection(client, "movies")
+
+		var recommendedMovies []models.Movie
+
+		cursor, err := movieCollection.Find(ctx, filter, opts)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching recommended movies"})
+			return
+		}
+
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &recommendedMovies); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, recommendedMovies)
+	}
+}
+
+func GetUsersFavouriteGenres(userId string, client *mongo.Client, c *gin.Context) ([]string, error) {
+	var ctx, cancel = context.WithTimeout(c, 100*time.Second)
+	defer cancel()
+
+	filter := bson.M{"user_id": userId}
+
+	projection := bson.M{
+		"favorite_genres.genre_name": 1,
+		"_id":                        0,
+	}
+
+	opts := options.FindOne().SetProjection(projection)
+	var result bson.M
+
+	userCollection := mongoDb.OpenCollection(client, "users")
+	err := userCollection.FindOne(ctx, filter, opts).Decode(&result)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return []string{}, nil
+		}
+
+		return []string{}, errors.New("")
+	}
+
+	favGenresArr, ok := result["favorite_genres"].(bson.A)
+	if !ok {
+		return []string{}, errors.New("unable to retrieve favorite genres for user")
+	}
+
+	var genreNames []string
+
+	for _, favGenre := range favGenresArr {
+		if genreMap, ok := favGenre.(bson.D); ok {
+			for _, item := range genreMap {
+				if item.Key == "genre_name" {
+					if name, ok := item.Value.(string); ok {
+						genreNames = append(genreNames, name)
+					}
+				}
+			}
+		}
+	}
+
+	return genreNames, nil
+}
+
+func GetGenres(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		genreCollection := mongoDb.OpenCollection(client, "genres")
+
+		cursor, err := genreCollection.Find(ctx, bson.D{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching movie genres"})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		var genres []models.Genre
+		if err := cursor.All(ctx, &genres); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, genres)
+
+	}
 }
