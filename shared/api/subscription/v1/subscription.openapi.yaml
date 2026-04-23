@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: SubscriptionService API
+  version: 1.0.0
+  description: API для работы с данными о подписке
+x-ogen:
+  target: ./pkg/openapi/subscription/v1
+  package: subscription_v1
+  clean: true
+
+tags:
+  - name: Subscription
+    description: Операции с данными о подписке — получение и обновление информации
+
+paths:
+  /api/v1/subscriptions:
+    $ref: ./paths/subscriptions.yaml
+  /api/v1/subscriptions/{uuid}:
+    $ref: ./paths/subscriptions_by_uuid.yaml
+  /api/v1/subscriptions/{uuid}/pay:
+    $ref: ./paths/subscriptions_pay.yaml
+  /api/v1/subscriptions/{uuid}/cancel:
+    $ref: ./paths/subscriptions_cancel.yaml

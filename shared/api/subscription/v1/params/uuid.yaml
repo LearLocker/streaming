@@ -1,0 +1,9 @@
+name: uuid
+in: path
+required: true
+description: Идентификатор подписки, для которой запрашиваются данные о подписке
+schema:
+  type: string
+  minLength: 1
+  maxLength: 100
+  example: "0000-0000-0000-0000"

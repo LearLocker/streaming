@@ -1,0 +1,51 @@
+parameters:
+  - $ref: ../params/uuid.yaml
+
+post:
+  summary: Pay subscription
+  operationId: PaySubscriptionByUuid
+  tags:
+    - Subscription
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/pay_subscription_request.yaml
+  responses:
+    '200':
+      description: Subscription paid successfully
+      content:
+        application/json:
+          schema:
+            $ref: ../components/pay_subscription_response.yaml
+    '409':
+      description: Subscription already paid or cancelled
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/conflict_error.yaml
+    '404':
+      description: Subscription not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/not_found_error.yaml
+    '400':
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/bad_request_error.yaml
+    '500':
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/internal_server_error.yaml
+    default:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/generic_error.yaml

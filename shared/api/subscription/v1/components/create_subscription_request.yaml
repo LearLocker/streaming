@@ -1,0 +1,8 @@
+type: object
+required: [plan_id, payment_method]
+properties:
+  plan_id:
+    type: string
+    format: uuid
+  payment_method:
+    $ref: ./enums/payment_method.yaml

@@ -1,0 +1,42 @@
+post:
+  summary: Create subscription
+  operationId: CreateSubscription
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ./components/create_subscription_request.yaml
+  tags:
+    - Subscription
+  responses:
+    '201':
+      description: Subscription successfully created
+      content:
+        application/json:
+          schema:
+            $ref: ../components/subscription.yaml
+    '404':
+      description: Subscription data for specified city not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/not_found_error.yaml
+    '400':
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/bad_request_error.yaml
+    '500':
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/internal_server_error.yaml
+    default:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/errors/generic_error.yaml

@@ -1,0 +1,19 @@
+type: object
+properties:
+  uuid:
+    type: string
+    format: uuid
+  status:
+    $ref: ./enums/subscription_status.yaml
+  plan_id:
+    type: string
+  plan_name:
+    type: string
+  amount:
+    type: integer
+    format: int64
+  currency:
+    type: string
+  expires_at:
+    type: string
+    format: date-time

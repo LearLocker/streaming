@@ -1,0 +1,7 @@
+type: string
+enum:
+  - PENDING
+  - AWAITING_PAYMENT
+  - ACTIVE
+  - EXPIRED
+  - CANCELLED
