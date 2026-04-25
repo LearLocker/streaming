@@ -6,7 +6,7 @@ post:
     content:
       application/json:
         schema:
-          $ref: ./components/create_subscription_request.yaml
+          $ref: ../components/create_subscription_request.yaml
   tags:
     - Subscription
   responses:

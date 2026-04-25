@@ -1,6 +1,5 @@
 version: '3'
 
-# Глобальные переменные проекта
 vars:
   GO_VERSION: '1.24'
   GOLANGCI_LINT_VERSION: 'v2.1.5'
@@ -17,11 +16,12 @@ vars:
   GOLANGCI_LINT: '{{.BIN_DIR}}/golangci-lint'
   GCI: '{{.BIN_DIR}}/gci'
   GOFUMPT: '{{.BIN_DIR}}/gofumpt'
-  BUF: '{{.BIN_DIR}}/buf'
+  # на Windows buf берём из PATH (установлен через Scoop)
+  BUF: 'buf'
   OGEN: '{{.BIN_DIR}}/ogen'
   YQ: '{{.BIN_DIR}}/yq'
-  PROTOC_GEN_GO: '{{.BIN_DIR}}/protoc-gen-go'
-  PROTOC_GEN_GO_GRPC: '{{.BIN_DIR}}/protoc-gen-go-grpc'
+  PROTOC_GEN_GO: '{{.BIN_DIR}}/protoc-gen-go.exe'
+  PROTOC_GEN_GO_GRPC: '{{.BIN_DIR}}/protoc-gen-go-grpc.exe'
   GRPCURL: '{{.BIN_DIR}}/grpcurl'
 
   NODE_MODULES_DIR: '{{.ROOT_DIR}}/node_modules/.bin'
@@ -29,199 +29,137 @@ vars:
 
   OPEN_API_SUBSCRIPTION_V1_BASE: '{{.ROOT_DIR}}/shared/api/subscription/v1/subscription.openapi.yaml'
   OPEN_API_SUBSCRIPTION_V1_BUNDLE: '{{.ROOT_DIR}}/shared/api/bundles/subscription.openapi.v1.bundle.yaml'
-
   OPEN_API_FILES: '{{.ROOT_DIR}}/shared/api/bundles'
 
-  MODULES: assembly catalog  subscription payment platform iam notification
+  MODULES: subscription payment catalog shared
 
 tasks:
+  # ──────────────────────────────────────────────
+  # УСТАНОВКА ИНСТРУМЕНТОВ
+  # ──────────────────────────────────────────────
+
   install-formatters:
     desc: "Устанавливает форматтеры gci и gofumpt в ./bin"
-    summary: |
-      Эта задача проверяет наличие инструментов форматирования кода gofumpt и gci в директории bin.
-      Если инструменты не найдены, они будут автоматически установлены с указанными версиями.
-      
-      Используется:
-        - gofumpt: для форматирования кода Go
-        - gci: для сортировки импортов Go
     cmds:
-      - |
-        [ -f {{.GOFUMPT}} ] || {
-          echo '📦 Устанавливаем gofumpt {{.GOFUMPT_VERSION}}...'
-          GOBIN={{.BIN_DIR}} go install mvdan.cc/gofumpt@{{.GOFUMPT_VERSION}}
-        }
-        [ -f {{.GCI}} ] || {
-          echo '📦 Устанавливаем gci {{.GCI_VERSION}}...'
-          GOBIN={{.BIN_DIR}} go install github.com/daixiang0/gci@{{.GCI_VERSION}}
-        }
-    status:
-      - test -x {{.GOFUMPT}}
-      - test -x {{.GCI}}
-
-  format:
-    desc: "Форматирует весь проект gofumpt + gci, исключая mocks"
-    summary: |
-      Форматирует все Go-файлы проекта с использованием gofumpt для стандартизации кода
-      и gci для сортировки импортов, исключая файлы в директориях mocks.
-      
-      Использует инструменты:
-        - gofumpt: для стандартизации форматирования
-        - gci: для сортировки импортов по стандартным группам
-    deps: [ install-formatters ]
-    cmds:
-      - |
-        echo "🧼 Форматируем через gofumpt ..."
-        
-        for module in {{.MODULES}}; do
-          if [ -d "$module" ]; then
-            echo "🧼 Форматируем $module"
-            find $module -type f -name '*.go' ! -path '*/mocks/*' -exec {{.GOFUMPT}} -extra -w {} +
-          fi
-        done
-      - |
-        echo "🎯 Сортируем импорты через gci ..."
-        
-        for module in {{.MODULES}}; do
-          if [ -d "$module" ]; then
-            echo "🎯 Сортируем импорты в $module"
-            find $module -type f -name '*.go' ! -path '*/mocks/*' -exec {{.GCI}} write -s standard -s default -s "prefix(github.com/olezhek28/microservices-course-olezhek-solution)" {} +
-          fi
-        done
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install mvdan.cc/gofumpt@{{.GOFUMPT_VERSION}}
+      - GOBIN={{.BIN_DIR}} go install github.com/daixiang0/gci@{{.GCI_VERSION}}
 
   install-golangci-lint:
     desc: "Устанавливает golangci-lint в каталог bin"
-    summary: |
-      Проверяет наличие golangci-lint в директории bin.
-      Если инструмент не найден, автоматически устанавливает его через go install.
-      
-      Устанавливаемая версия: {{.GOLANGCI_LINT_VERSION}}
     cmds:
-      - |
-        [ -f {{.GOLANGCI_LINT}} ] || {
-          mkdir -p {{.BIN_DIR}}
-          echo "📦 Устанавливаем golangci-lint {{.GOLANGCI_LINT_VERSION}}..."
-          GOBIN={{.BIN_DIR}} go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
-        }
-    status:
-      - test -x {{.GOLANGCI_LINT}}
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
 
-  lint:
-    desc: "Запускает golangci-lint для всех модулей"
-    summary: |
-      Запускает линтер golangci-lint для всех модулей проекта.
-      Линтер проверяет код на соответствие стандартам качества и лучшим практикам.
-      Проверка включает проверку безопасности через gosec (встроенный в golangci-lint).
-      
-      Зависимости:
-        - install-golangci-lint: автоматически устанавливает линтер
-        - format: форматирует код перед проверкой
-    deps: [ install-golangci-lint ]
-    vars:
-      MODULES: '{{.MODULES}}'
-      GOLANGCI_LINT: '{{.GOLANGCI_LINT}}'
-    cmds:
-      - |
-        set -e
-        ERR=0
-        echo "🔍 Линтим все модули ..."
-        for mod in {{.MODULES}}; do
-          if [ -d "$mod" ]; then
-            echo "🔍 Линтим $mod module"
-            {{.GOLANGCI_LINT}} run $mod/... --config=.golangci.yml || ERR=1
-          fi
-        done
-        exit $ERR
-
+  # buf на Windows — через Scoop, не через curl+tar
   install-buf:
-    desc: "Устанавливает Buf в каталог bin"
+    desc: "Устанавливает Buf через Scoop (Windows)"
     cmds:
-      - |
-        [ -f {{.BUF}} ] || {
-          mkdir -p {{.BIN_DIR}} tmp-buf
-          curl -sSL \
-            "https://github.com/bufbuild/buf/releases/download/v{{.BUF_VERSION}}/buf-$(uname -s)-$(uname -m).tar.gz" \
-            | tar -xz -C tmp-buf
-          mv tmp-buf/buf/bin/buf {{.BUF}}
-          rm -rf tmp-buf
-          chmod +x {{.BUF}}
-        }
+      - scoop install buf
+    status:
+      - buf --version
 
   proto:install-plugins:
     desc: "Устанавливает protoc плагины в каталог bin"
     cmds:
-      - |
-        [ -f {{.PROTOC_GEN_GO}} ] || {
-          echo '📦 Installing protoc-gen-go...'
-          GOBIN={{.BIN_DIR}} go install google.golang.org/protobuf/cmd/protoc-gen-go@{{.PROTOC_GEN_GO_VERSION}}
-        }
-        [ -f {{.PROTOC_GEN_GO_GRPC}} ] || {
-          echo '📦 Installing protoc-gen-go-grpc...'
-          GOBIN={{.BIN_DIR}} go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@{{.PROTOC_GEN_GO_GRPC_VERSION}}
-        }
-
-  proto:gen:
-    deps: [ install-buf, proto:install-plugins, proto:lint ]
-    desc: Генерация Go-кода из .proto
-    dir: shared/proto
-    cmds:
-      - '{{.BUF}} generate'
-
-  proto:lint:
-    deps: [ install-buf, proto:install-plugins ]
-    desc: Проверка .proto-файлов на соответствие стилю
-    dir: shared/proto
-    cmds:
-      - '{{.BUF}} lint'
-
-  redocly-cli:install:
-    desc: Установить локально Redocly CLI
-    cmds:
-      - |
-        [ -f {{.REDOCLY}} ] || {
-          npm ci
-        }
-
-  redocly-cli:subscription-v1-bundle:
-    desc: Собрать OpenAPI в один файл через локальный redocly
-    deps: [ redocly-cli:install ]
-    cmds:
-      - '{{.REDOCLY}} bundle {{.OPEN_API_SUBSCRIPTION_V1_BASE}} -o {{.OPEN_API_SUBSCRIPTION_V1_BUNDLE}}'
-
-  redocly-cli:bundle:
-    desc: Собрать все схемы OpenAPI в общие файлы через локальный redocly
-    deps: [ redocly-cli:install ]
-    cmds:
-      - task: redocly-cli:subscription-v1-bundle
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install google.golang.org/protobuf/cmd/protoc-gen-go@{{.PROTOC_GEN_GO_VERSION}}
+      - GOBIN={{.BIN_DIR}} go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@{{.PROTOC_GEN_GO_GRPC_VERSION}}
 
   ogen:install:
     desc: "Скачивает ogen в папку bin"
     cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install github.com/ogen-go/ogen/cmd/ogen@{{.OGEN_VERSION}}
+
+  yq:install:
+    desc: "Устанавливает yq в bin/"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install github.com/mikefarah/yq/v4@{{.YQ_VERSION}}
+
+  grpcurl:install:
+    desc: "Устанавливает grpcurl в каталог bin"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOBIN={{.BIN_DIR}} go install github.com/fullstorydev/grpcurl/cmd/grpcurl@{{.GRPCURL_VERSION}}
+
+  # ──────────────────────────────────────────────
+  # ГЕНЕРАЦИЯ PROTO — без buf registry
+  # ──────────────────────────────────────────────
+
+  proto:gen:
+    desc: Генерация Go-кода из .proto через protoc напрямую (без buf registry)
+    deps: [ proto:install-plugins ]
+    vars:
+      # полный путь к плагинам с .exe для Windows
+      GOBIN:
+        sh: go env GOPATH
+    cmds:
+      - mkdir -p shared/pkg/proto/payment/v1
+      - mkdir -p shared/pkg/proto/catalog/v1
+      - >-
+        protoc
+        --plugin=protoc-gen-go={{.PROTOC_GEN_GO}}
+        --plugin=protoc-gen-go-grpc={{.PROTOC_GEN_GO_GRPC}}
+        --proto_path=shared/proto
+        --go_out=shared/pkg/proto
+        --go_opt=paths=source_relative
+        --go-grpc_out=shared/pkg/proto
+        --go-grpc_opt=paths=source_relative
+        shared/proto/payment/v1/payment.proto
+        shared/proto/catalog/v1/catalog.proto
+
+  proto:lint:
+    desc: Проверка .proto файлов (только синтаксис, без buf registry)
+    deps: [ install-buf ]
+    dir: shared/proto
+    cmds:
+      - buf lint
+
+  # ──────────────────────────────────────────────
+  # ГЕНЕРАЦИЯ OPENAPI
+  # ──────────────────────────────────────────────
+
+  redocly-cli:install:
+    desc: Установить Redocly CLI
+    cmds:
       - |
-        [ -f {{.OGEN}} ] || {
-          mkdir -p {{.BIN_DIR}}
-          GOBIN={{.BIN_DIR}} go install github.com/ogen-go/ogen/cmd/ogen@{{.OGEN_VERSION}}
+        [ -f {{.REDOCLY}} ] || {
+          npm ci
+        } || {
+          echo "📦 Устанавливаем redocly-cli..."
+          npm install
         }
 
+  redocly-cli:subscription-v1-bundle:
+    desc: Собрать OpenAPI подписки в один файл
+    deps: [ redocly-cli:install ]
+    cmds:
+      - mkdir -p shared/api/bundles
+      - '{{.REDOCLY}} bundle {{.OPEN_API_SUBSCRIPTION_V1_BASE}} -o {{.OPEN_API_SUBSCRIPTION_V1_BUNDLE}}'
+
+  redocly-cli:bundle:
+    desc: Собрать все OpenAPI схемы
+    cmds:
+      - task: redocly-cli:subscription-v1-bundle
+
   ogen:gen:
-    desc: "Генерация Go-кода из всех OpenAPI-деклараций с x-ogen"
+    desc: "Генерация Go-кода из OpenAPI"
     deps: [ ogen:install, yq:install ]
     cmds:
       - task: redocly-cli:bundle
-      - |
-        find {{.OPEN_API_FILES}} -name '*.yaml' -o -name '*.yml' | while read -r file; do
-          if [ -f "$file" ] && grep -q 'x-ogen:' "$file"; then
-            echo "🚀 Generating from: $file"
-            target=$({{.YQ}} e '."x-ogen".target' "$file")
-            package=$({{.YQ}} e '."x-ogen".package' "$file")
-            echo "📁 Target: $target"
-            echo "📦 Package: $package"
-            {{.OGEN}} \
-              --target "$target" \
-              --package "$package" \
-              --clean \
-              "$file" || exit 1
-          fi
-        done
+      - mkdir -p shared/pkg/openapi/subscription/v1
+      - >-
+        {{.OGEN}}
+        --target shared/pkg/openapi/subscription/v1
+        --package subscription_v1
+        --clean
+        {{.OPEN_API_SUBSCRIPTION_V1_BUNDLE}}
+
+  # ──────────────────────────────────────────────
+  # ОСНОВНЫЕ КОМАНДЫ
+  # ──────────────────────────────────────────────
 
   gen:
     desc: "Генерация всех proto и OpenAPI деклараций"
@@ -229,34 +167,485 @@ tasks:
       - task: proto:gen
       - task: ogen:gen
 
-  deps:update:
-    desc: "Обновление зависимостей в go.mod во всех модулях"
+  format:
+    desc: "Форматирует код gofumpt + gci"
+    deps: [ install-formatters ]
+    cmds:
+      - >-
+        {{.GOFUMPT}} -extra -w
+        subscription payment catalog shared
+
+  lint:
+    desc: "Линтер для всех модулей"
+    deps: [ install-golangci-lint ]
+    cmds:
+      - '{{.GOLANGCI_LINT}} run subscription/... --config=.golangci.yml'
+      - '{{.GOLANGCI_LINT}} run payment/... --config=.golangci.yml'
+      - '{{.GOLANGCI_LINT}} run catalog/... --config=.golangci.yml'
+
+  build:
+    desc: "Сборка всех сервисов"
+    cmds:
+      - task: build:subscription
+      - task: build:payment
+      - task: build:catalog
+
+  build:subscription:
+    desc: "Сборка Subscription Service"
+    dir: subscription
+    cmds:
+      - go build ./cmd/...
+
+  build:payment:
+    desc: "Сборка Payment Service"
+    dir: payment
+    cmds:
+      - go build ./cmd/...
+
+  build:catalog:
+    desc: "Сборка Catalog Service"
+    dir: catalog
+    cmds:
+      - go build ./cmd/...
+
+  tidy:
+    desc: "Синхронизация зависимостей"
+    cmds:
+      - go work sync
+      - cmd: cd shared && go mod tidy -compat=1.24
+      - cmd: cd subscription && go mod tidy -compat=1.24
+      - cmd: cd payment && go mod tidy -compat=1.24
+      - cmd: cd catalog && go mod tidy -compat=1.24
+
+  test-api:
+    desc: "🧪 Запуск тестов для проверки API микросервисов кинотеатра"
+    deps: [ grpcurl:install ]
     cmds:
       - |
-        echo "🔄 Обновление зависимостей в go.mod во всех модулях"
-        for mod in {{.MODULES}}; do
-          if [ -d "$mod" ]; then
-            echo "🔄 Обновление зависимостей в $mod"
-            (cd "$mod" && go mod tidy -compat=1.24) || exit 1
+        echo "🎬 Тестирование API микросервисов онлайн-кинотеатра"
+        ERRORS=0
+        
+        # ─────────────────────────────────────────
+        # CATALOG SERVICE (gRPC :50052)
+        # ─────────────────────────────────────────
+        
+        echo ""
+        echo "═══════════════════════════════════════"
+        echo "📚 CATALOG SERVICE (gRPC)"
+        echo "═══════════════════════════════════════"
+        
+        echo ""
+        echo "🎬 Тест 1: Получение списка жанров"
+        GENRES_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d '{}' \
+          localhost:50052 catalog.v1.CatalogService/GetGenres)
+        
+        if [[ -z "$GENRES_RESPONSE" || "$GENRES_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить жанры."
+          echo "🔍 Ответ: $GENRES_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          GENRE_NAME=$(echo $GENRES_RESPONSE | grep -o '"genreName": "[^"]*' | head -1 | cut -d'"' -f4)
+          echo "✅ Жанры получены, первый жанр: $GENRE_NAME"
+        fi
+        
+        echo ""
+        echo "🎬 Тест 2: Получение списка всех фильмов"
+        MOVIES_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d '{"page": 1, "page_size": 10}' \
+          localhost:50052 catalog.v1.CatalogService/GetMovies)
+        
+        if [[ -z "$MOVIES_RESPONSE" || "$MOVIES_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить список фильмов."
+          echo "🔍 Ответ: $MOVIES_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          MOVIE_IMDB_ID=$(echo $MOVIES_RESPONSE | grep -o '"imdbId": "[^"]*' | head -1 | cut -d'"' -f4)
+          MOVIE_TITLE=$(echo $MOVIES_RESPONSE | grep -o '"title": "[^"]*' | head -1 | cut -d'"' -f4)
+          echo "✅ Фильмы получены, первый: \"$MOVIE_TITLE\" (imdb_id: $MOVIE_IMDB_ID)"
+        fi
+        
+        echo ""
+        echo "🎬 Тест 3: Добавление тестового фильма"
+        ADD_MOVIE_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d '{
+            "imdb_id": "tt_test_001",
+            "title": "Test Movie для CI",
+            "poster_path": "https://example.com/poster.jpg",
+            "youtube_id": "dQw4w9WgXcQ",
+            "genre": [{"genre_id": 1, "genre_name": "'"$GENRE_NAME"'"}],
+            "ranking": {"ranking_value": 5, "ranking_name": "Excellent"}
+          }' \
+          localhost:50052 catalog.v1.CatalogService/AddMovie)
+        
+        if [[ -z "$ADD_MOVIE_RESPONSE" || "$ADD_MOVIE_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось добавить фильм."
+          echo "🔍 Ответ: $ADD_MOVIE_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          INSERTED_ID=$(echo $ADD_MOVIE_RESPONSE | grep -o '"insertedId": "[^"]*' | cut -d'"' -f4)
+          echo "✅ Фильм добавлен, inserted_id: $INSERTED_ID"
+          TEST_IMDB_ID="tt_test_001"
+        fi
+        
+        echo ""
+        echo "🎬 Тест 4: Получение фильма по imdb_id"
+        GET_MOVIE_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{\"imdb_id\": \"$TEST_IMDB_ID\"}" \
+          localhost:50052 catalog.v1.CatalogService/GetMovieById)
+        
+        if [[ -z "$GET_MOVIE_RESPONSE" || "$GET_MOVIE_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить фильм по imdb_id: $TEST_IMDB_ID"
+          echo "🔍 Ответ: $GET_MOVIE_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          FETCHED_TITLE=$(echo $GET_MOVIE_RESPONSE | grep -o '"title": "[^"]*' | cut -d'"' -f4)
+          echo "✅ Фильм найден: \"$FETCHED_TITLE\""
+        fi
+        
+        echo ""
+        echo "🎬 Тест 5: Получение тарифов (планов подписки)"
+        PLANS_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d '{"only_active": true}' \
+          localhost:50052 catalog.v1.CatalogService/ListPlans)
+        
+        if [[ -z "$PLANS_RESPONSE" || "$PLANS_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить тарифы."
+          echo "🔍 Ответ: $PLANS_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          PLAN_ID=$(echo $PLANS_RESPONSE | grep -o '"planId": "[^"]*' | head -1 | cut -d'"' -f4)
+          PLAN_NAME=$(echo $PLANS_RESPONSE | grep -o '"name": "[^"]*' | head -1 | cut -d'"' -f4)
+          echo "✅ Тарифы получены, первый: \"$PLAN_NAME\" (plan_id: $PLAN_ID)"
+        fi
+        
+        echo ""
+        echo "🎬 Тест 6: Получение тарифа по plan_id"
+        GET_PLAN_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{\"plan_id\": \"$PLAN_ID\"}" \
+          localhost:50052 catalog.v1.CatalogService/GetPlan)
+        
+        if [[ -z "$GET_PLAN_RESPONSE" || "$GET_PLAN_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить тариф по plan_id: $PLAN_ID"
+          echo "🔍 Ответ: $GET_PLAN_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          PLAN_PRICE=$(echo $GET_PLAN_RESPONSE | grep -o '"price": [0-9]*' | cut -d' ' -f2)
+          echo "✅ Тариф найден: \"$PLAN_NAME\", цена: ${PLAN_PRICE} копеек"
+        fi
+        
+        # ─────────────────────────────────────────
+        # PAYMENT SERVICE (gRPC :50051)
+        # ─────────────────────────────────────────
+        
+        echo ""
+        echo "═══════════════════════════════════════"
+        echo "💳 PAYMENT SERVICE (gRPC)"
+        echo "═══════════════════════════════════════"
+        
+        TEST_USER_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+        TEST_SUB_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+        echo "🔑 Тестовый user_id: $TEST_USER_ID"
+        echo "🔑 Тестовый subscription_id: $TEST_SUB_ID"
+        
+        echo ""
+        echo "💳 Тест 7: Проведение платежа"
+        PROCESS_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{
+            \"subscription_id\": \"$TEST_SUB_ID\",
+            \"user_id\": \"$TEST_USER_ID\",
+            \"amount\": $PLAN_PRICE,
+            \"currency\": \"RUB\",
+            \"method\": \"CARD\"
+          }" \
+          localhost:50051 payment.v1.PaymentService/ProcessPayment)
+        
+        if [[ -z "$PROCESS_RESPONSE" || "$PROCESS_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось провести платёж."
+          echo "🔍 Ответ: $PROCESS_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          PAYMENT_ID=$(echo $PROCESS_RESPONSE | grep -o '"paymentId": "[^"]*' | cut -d'"' -f4)
+          PAYMENT_STATUS=$(echo $PROCESS_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          echo "✅ Платёж проведён: payment_id=$PAYMENT_ID, статус=$PAYMENT_STATUS"
+        fi
+        
+        echo ""
+        echo "💳 Тест 8: Получение платежа по payment_id"
+        GET_PAYMENT_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{\"payment_id\": \"$PAYMENT_ID\"}" \
+          localhost:50051 payment.v1.PaymentService/GetPayment)
+        
+        if [[ -z "$GET_PAYMENT_RESPONSE" || "$GET_PAYMENT_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось получить платёж."
+          echo "🔍 Ответ: $GET_PAYMENT_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          GOT_STATUS=$(echo $GET_PAYMENT_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          echo "✅ Платёж получен: статус=$GOT_STATUS"
+        fi
+        
+        echo ""
+        echo "💳 Тест 9: Возврат платежа (Refund)"
+        REFUND_SUB_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+        REFUND_PAY_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{
+            \"subscription_id\": \"$REFUND_SUB_ID\",
+            \"user_id\": \"$TEST_USER_ID\",
+            \"amount\": $PLAN_PRICE,
+            \"currency\": \"RUB\",
+            \"method\": \"CARD\"
+          }" \
+          localhost:50051 payment.v1.PaymentService/ProcessPayment)
+        
+        REFUND_PAYMENT_ID=$(echo $REFUND_PAY_RESPONSE | grep -o '"paymentId": "[^"]*' | cut -d'"' -f4)
+        
+        REFUND_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{
+            \"payment_id\": \"$REFUND_PAYMENT_ID\",
+            \"reason\": \"subscription_cancelled\"
+          }" \
+          localhost:50051 payment.v1.PaymentService/RefundPayment)
+        
+        if [[ -z "$REFUND_RESPONSE" || "$REFUND_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Не удалось выполнить возврат платежа."
+          echo "🔍 Ответ: $REFUND_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          REFUND_STATUS=$(echo $REFUND_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          echo "✅ Возврат выполнен: статус=$REFUND_STATUS"
+        fi
+        
+        echo ""
+        echo "💳 Тест 10: Повторный возврат уже возвращённого платежа (ожидаем ошибку)"
+        DOUBLE_REFUND=$({{.GRPCURL}} -plaintext \
+          -d "{
+            \"payment_id\": \"$REFUND_PAYMENT_ID\",
+            \"reason\": \"duplicate_refund_test\"
+          }" \
+          localhost:50051 payment.v1.PaymentService/RefundPayment)
+        
+        if [[ "$DOUBLE_REFUND" == *'"code"'* || "$DOUBLE_REFUND" == *"FailedPrecondition"* ]]; then
+          echo "✅ Сервис корректно отклонил повторный возврат"
+        else
+          echo "❌ Сервис должен был отклонить повторный возврат, но вернул успех."
+          echo "🔍 Ответ: $DOUBLE_REFUND"
+          ERRORS=$((ERRORS+1))
+        fi
+        
+        # ─────────────────────────────────────────
+        # SUBSCRIPTION SERVICE (REST :8080)
+        # ─────────────────────────────────────────
+        
+        echo ""
+        echo "═══════════════════════════════════════"
+        echo "🎟️  SUBSCRIPTION SERVICE (REST)"
+        echo "═══════════════════════════════════════"
+        
+        echo ""
+        echo "🎟️  Тест 11: Создание подписки с несуществующим plan_id (ожидаем 404)"
+        BAD_PLAN_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions" \
+          -H "Content-Type: application/json" \
+          -d '{"plan_id": "00000000-0000-0000-0000-000000000000", "payment_method": "CARD"}')
+        
+        if [[ "$BAD_PLAN_RESPONSE" == "404" ]]; then
+          echo "✅ Сервис корректно вернул 404 для несуществующего тарифа"
+        else
+          echo "❌ Ожидался HTTP 404, получен: $BAD_PLAN_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 12: Создание подписки"
+        CREATE_SUB_RESPONSE=$(curl -s \
+          -X POST "http://localhost:8080/api/v1/subscriptions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $TEST_JWT" \
+          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"CARD\"}")
+        
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $TEST_JWT" \
+          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"CARD\"}")
+        
+        if [[ "$HTTP_STATUS" != "201" ]]; then
+          echo "❌ Ожидался HTTP 201, получен: $HTTP_STATUS"
+          echo "🔍 Ответ: $CREATE_SUB_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          SUB_UUID=$(echo $CREATE_SUB_RESPONSE | grep -o '"uuid":"[^"]*' | cut -d'"' -f4)
+          if [ -z "$SUB_UUID" ]; then
+            SUB_UUID=$(echo $CREATE_SUB_RESPONSE | grep -o '"uuid": "[^"]*' | cut -d'"' -f4)
           fi
-        done
-
-  yq:install:
-    desc: "Устанавливает yq в bin/ при необходимости"
-    cmds:
-      - |
-        [ -f {{.YQ}} ] || {
-          echo '📦 Installing yq...'
-          GOBIN={{.BIN_DIR}} go install github.com/mikefarah/yq/v4@{{.YQ_VERSION}}
-        }
-
-  grpcurl:install:
-    desc: "Устанавливает grpcurl в каталог bin"
-    cmds:
-      - |
-        [ -f {{.GRPCURL}} ] || {
-          echo '📦 Устанавливаем grpcurl {{.GRPCURL_VERSION}}...'
-          GOBIN={{.BIN_DIR}} go install github.com/fullstorydev/grpcurl/cmd/grpcurl@{{.GRPCURL_VERSION}}
-        }
-    status:
-      - test -x {{.GRPCURL}}
+          SUB_STATUS=$(echo $CREATE_SUB_RESPONSE | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+          if [ -z "$SUB_STATUS" ]; then
+            SUB_STATUS=$(echo $CREATE_SUB_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          fi
+          echo "✅ Подписка создана: uuid=$SUB_UUID, статус=$SUB_STATUS"
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 13: Получение подписки по uuid"
+        GET_SUB_RESPONSE=$(curl -s \
+          -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
+          -H "Authorization: Bearer $TEST_JWT")
+        
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
+          -H "Authorization: Bearer $TEST_JWT")
+        
+        if [[ "$HTTP_STATUS" != "200" ]]; then
+          echo "❌ Ожидался HTTP 200, получен: $HTTP_STATUS"
+          echo "🔍 Ответ: $GET_SUB_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          FETCHED_STATUS=$(echo $GET_SUB_RESPONSE | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+          if [ -z "$FETCHED_STATUS" ]; then
+            FETCHED_STATUS=$(echo $GET_SUB_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          fi
+          echo "✅ Подписка получена: uuid=$SUB_UUID, статус=$FETCHED_STATUS"
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 14: Получение несуществующей подписки (ожидаем 404)"
+        FAKE_UUID="00000000-0000-0000-0000-000000000000"
+        NOT_FOUND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X GET "http://localhost:8080/api/v1/subscriptions/$FAKE_UUID" \
+          -H "Authorization: Bearer $TEST_JWT")
+        
+        if [[ "$NOT_FOUND_STATUS" == "404" ]]; then
+          echo "✅ Сервис корректно вернул 404 для несуществующей подписки"
+        else
+          echo "❌ Ожидался HTTP 404, получен: $NOT_FOUND_STATUS"
+          ERRORS=$((ERRORS+1))
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 15: Оплата подписки"
+        PAY_HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB_UUID/pay" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $TEST_JWT" \
+          -d '{"payment_method": "CARD"}')
+        
+        if [[ "$PAY_HTTP_STATUS" != "200" ]]; then
+          echo "❌ Ожидался HTTP 200, получен: $PAY_HTTP_STATUS"
+          ERRORS=$((ERRORS+1))
+        else
+          PAID_STATUS=$(curl -s \
+            -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
+            -H "Authorization: Bearer $TEST_JWT" \
+            | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+          if [ -z "$PAID_STATUS" ]; then
+            PAID_STATUS=$(curl -s \
+              -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
+              -H "Authorization: Bearer $TEST_JWT" \
+              | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          fi
+          if [[ "$PAID_STATUS" != *"ACTIVE"* ]]; then
+            echo "❌ Ожидался статус ACTIVE после оплаты, получен: $PAID_STATUS"
+            ERRORS=$((ERRORS+1))
+          else
+            echo "✅ Подписка оплачена, статус: $PAID_STATUS"
+          fi
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 16: Повторная оплата активной подписки (ожидаем 409)"
+        DOUBLE_PAY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB_UUID/pay" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $TEST_JWT" \
+          -d '{"payment_method": "CARD"}')
+        
+        if [[ "$DOUBLE_PAY_STATUS" == "409" ]]; then
+          echo "✅ Сервис корректно вернул 409 для повторной оплаты"
+        else
+          echo "❌ Ожидался HTTP 409, получен: $DOUBLE_PAY_STATUS"
+          ERRORS=$((ERRORS+1))
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 17: Создание второй подписки для проверки отмены"
+        SUB2_RESPONSE=$(curl -s \
+          -X POST "http://localhost:8080/api/v1/subscriptions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $TEST_JWT" \
+          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"SBP\"}")
+        
+        SUB2_UUID=$(echo $SUB2_RESPONSE | grep -o '"uuid":"[^"]*' | cut -d'"' -f4)
+        if [ -z "$SUB2_UUID" ]; then
+          SUB2_UUID=$(echo $SUB2_RESPONSE | grep -o '"uuid": "[^"]*' | cut -d'"' -f4)
+        fi
+        echo "✅ Вторая подписка создана: uuid=$SUB2_UUID"
+        
+        echo ""
+        echo "🎟️  Тест 18: Отмена подписки"
+        CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID/cancel" \
+          -H "Authorization: Bearer $TEST_JWT")
+        
+        if [[ "$CANCEL_STATUS" != "204" ]]; then
+          echo "❌ Ожидался HTTP 204, получен: $CANCEL_STATUS"
+          ERRORS=$((ERRORS+1))
+        else
+          CANCELLED_STATUS=$(curl -s \
+            -X GET "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID" \
+            -H "Authorization: Bearer $TEST_JWT" \
+            | grep -o '"status":"[^"]*' | cut -d'"' -f4)
+          if [ -z "$CANCELLED_STATUS" ]; then
+            CANCELLED_STATUS=$(curl -s \
+              -X GET "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID" \
+              -H "Authorization: Bearer $TEST_JWT" \
+              | grep -o '"status": "[^"]*' | cut -d'"' -f4)
+          fi
+          if [[ "$CANCELLED_STATUS" != *"CANCELLED"* ]]; then
+            echo "❌ Ожидался статус CANCELLED, получен: $CANCELLED_STATUS"
+            ERRORS=$((ERRORS+1))
+          else
+            echo "✅ Подписка отменена, статус: $CANCELLED_STATUS"
+          fi
+        fi
+        
+        echo ""
+        echo "🎟️  Тест 19: Повторная отмена уже отменённой подписки (ожидаем 409)"
+        DOUBLE_CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID/cancel" \
+          -H "Authorization: Bearer $TEST_JWT")
+        
+        if [[ "$DOUBLE_CANCEL_STATUS" == "409" ]]; then
+          echo "✅ Сервис корректно вернул 409 для повторной отмены"
+        else
+          echo "❌ Ожидался HTTP 409, получен: $DOUBLE_CANCEL_STATUS"
+          ERRORS=$((ERRORS+1))
+        fi
+        
+        echo ""
+        echo "🎬 Тест 20: Рекомендации фильмов через Catalog (gRPC)"
+        REC_RESPONSE=$({{.GRPCURL}} -plaintext \
+          -d "{\"user_id\": \"$TEST_USER_ID\", \"limit\": 5}" \
+          localhost:50052 catalog.v1.CatalogService/GetRecommendedMovies)
+        
+        if [[ "$REC_RESPONSE" == *'"code"'* ]]; then
+          echo "❌ Ошибка при получении рекомендаций."
+          echo "🔍 Ответ: $REC_RESPONSE"
+          ERRORS=$((ERRORS+1))
+        else
+          echo "✅ Рекомендации получены"
+        fi
+        
+        # ─────────────────────────────────────────
+        # ИТОГ
+        # ─────────────────────────────────────────
+        
+        echo ""
+        echo "═══════════════════════════════════════"
+        if [[ $ERRORS -eq 0 ]]; then
+          echo "🎉 Все тесты (20/20) успешно пройдены!"
+        else
+          echo "💥 Провалено тестов: $ERRORS из 20"
+          exit 1
+        fi
+        echo "═══════════════════════════════════════"

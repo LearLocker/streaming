@@ -12,8 +12,13 @@ properties:
   amount:
     type: integer
     format: int64
+    description: Стоимость в копейках, берётся из тарифа
   currency:
     type: string
+    description: Валюта, берётся из тарифа
+  payment_method:
+    $ref: ./enums/payment_method.yaml
   expires_at:
     type: string
     format: date-time
+    description: Заполняется после оплаты

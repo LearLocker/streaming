@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package payment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+
+option go_package ="github.com/LearLocker/streaming/grpc/pkg/proto/payment/v1;payment_v1;";
+
+service PaymentService {
+  rpc ProcessPayment(ProcessPaymentRequest) returns (ProcessPaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+}
+
+enum  PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_PENDING     = 1;
+  PAYMENT_STATUS_PROCESSING  = 2;
+  PAYMENT_STATUS_SUCCESS     = 3;
+  PAYMENT_STATUS_FAILED      = 4;
+  PAYMENT_STATUS_REFUNDED    = 5;
+}
+
+message ProcessPaymentRequest {
+  string subscription_id = 1;
+  string user_id         = 2;
+  int64  amount          = 3;
+  string currency        = 4;
+  string method          = 5;
+}
+
+message ProcessPaymentResponse {
+  string        payment_id = 1;
+  PaymentStatus status     = 2;
+  string        message    = 3;
+}
+
+message GetPaymentRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentResponse {
+  string                    payment_id      = 1;
+  string                    subscription_id = 2;
+  int64                     amount          = 3;
+  PaymentStatus             status          = 4;
+  google.protobuf.Timestamp created_at      = 5;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  string reason     = 2;
+}
+
+message RefundPaymentResponse {
+  string                    payment_id  = 1;
+  PaymentStatus             status      = 2;
+  google.protobuf.Timestamp refunded_at = 3;
+}

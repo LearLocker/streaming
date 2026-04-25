@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package payment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/empty.proto";
+
+option go_package ="github.com/LearLocker/streaming/grpc/pkg/proto/catalog/v1;catalog_v1;";
+
+service CatalogService {
+  // фильмы — из GetMovies, GetMovieById, AddMovie
+  rpc GetMovies(GetMoviesRequest)       returns (GetMoviesResponse);
+  rpc GetMovieById(GetMovieByIdRequest) returns (GetMovieByIdResponse);
+  rpc AddMovie(AddMovieRequest)         returns (AddMovieResponse);
+
+  // отзыв — из ReviewUpdate
+  rpc UpdateReview(UpdateReviewRequest) returns (UpdateReviewResponse);
+
+  // рекомендации — из GetRecommendedMovies
+  rpc GetRecommendedMovies(GetRecommendedMoviesRequest) returns (GetRecommendedMoviesResponse);
+
+  // жанры — из GetGenres
+  rpc GetGenres(GetGenresRequest) returns (GetGenresResponse);
+
+  // тарифы — нужны Subscription Service (новое)
+  rpc GetPlan(GetPlanRequest)     returns (GetPlanResponse);
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+}
+
+// ───────────────────────────────────────────
+// Базовые сообщения — из models/movie.go
+// ───────────────────────────────────────────
+
+message Genre {
+  int32  genre_id   = 1; // GenreID   int
+  string genre_name = 2; // GenreName string
+}
+
+message Review {
+  string author_id = 1; // AuthorID int → string (user_id из JWT)
+  string text      = 2; // Text     string
+}
+
+message Ranking {
+  int32  ranking_value = 1; // RankingValue int
+  string ranking_name  = 2; // RankingName  string
+}
+
+message Movie {
+  string          id          = 1; // bson.ObjectID → string hex
+  string          imdb_id     = 2; // ImdbID     string
+  string          title       = 3; // Title      string
+  string          poster_path = 4; // PosterPath string
+  string          youtube_id  = 5; // YouTubeID  string
+  repeated Genre  genre       = 6; // Genre      []Genre
+  repeated Review reviews     = 7; // Review     []Review
+  Ranking         ranking     = 8; // Ranking    Ranking
+}
+
+// ───────────────────────────────────────────
+// GetMovies — список всех фильмов
+// ───────────────────────────────────────────
+
+message GetMoviesRequest {
+  // фильтры — расширяй по мере роста
+  repeated string genre_names = 1; // фильтр по жанрам
+  int32           page        = 2; // пагинация
+  int32           page_size   = 3;
+}
+
+message GetMoviesResponse {
+  repeated Movie movies = 1;
+  int32          total  = 2;
+}
+
+// ───────────────────────────────────────────
+// GetMovieById — один фильм по imdb_id
+// ───────────────────────────────────────────
+
+message GetMovieByIdRequest {
+  string imdb_id = 1; // c.Param("imdb_id") из хэндлера
+}
+
+message GetMovieByIdResponse {
+  Movie movie = 1;
+}
+
+// ───────────────────────────────────────────
+// AddMovie — добавить фильм (ADMIN)
+// ───────────────────────────────────────────
+
+message AddMovieRequest {
+  string          imdb_id     = 1;
+  string          title       = 2;
+  string          poster_path = 3;
+  string          youtube_id  = 4;
+  repeated Genre  genre       = 5;
+  Ranking         ranking     = 6;
+}
+
+message AddMovieResponse {
+  string inserted_id = 1; // mongo InsertedID → hex string
+}
+
+// ───────────────────────────────────────────
+// UpdateReview — из ReviewUpdate
+// sentiment через LLM уже внутри Catalog,
+// Subscription просто получает результат
+// ───────────────────────────────────────────
+
+message UpdateReviewRequest {
+  string imdb_id   = 1; // c.Param("imdb_id")
+  string author_id = 2; // userId из JWT контекста
+  string text      = 3; // req.Review
+}
+
+message UpdateReviewResponse {
+  string ranking_name  = 1; // sentiment от LLM
+  int32  ranking_value = 2;
+  string text          = 3;
+}
+
+// ───────────────────────────────────────────
+// GetRecommendedMovies — из GetRecommendedMovies
+// логика: жанры пользователя → фильтр → сортировка по ranking
+// ───────────────────────────────────────────
+
+message GetRecommendedMoviesRequest {
+  string user_id = 1; // для GetUsersFavouriteGenres внутри
+  int32  limit   = 2; // RECOMMENDED_MOVIE_LIMIT из .env
+}
+
+message GetRecommendedMoviesResponse {
+  repeated Movie movies = 1;
+}
+
+// ───────────────────────────────────────────
+// GetGenres — из GetGenres
+// ───────────────────────────────────────────
+
+message GetGenresRequest {}
+
+message GetGenresResponse {
+  repeated Genre genres = 1;
+}
+
+// ───────────────────────────────────────────
+// Plan — тарифы подписки (новое, нужно Subscription Service)
+// ───────────────────────────────────────────
+
+message Plan {
+  string plan_id       = 1;
+  string name          = 2;
+  int64  price         = 3; // в копейках
+  string currency      = 4; // RUB
+  int32  duration_days = 5; // 30 / 365
+  bool   is_active     = 6;
+}
+
+message GetPlanRequest {
+  string plan_id = 1;
+}
+
+message GetPlanResponse {
+  Plan plan = 1;
+}
+
+message ListPlansRequest {
+  bool only_active = 1;
+}
+
+message ListPlansResponse {
+  repeated Plan plans = 1;
+}

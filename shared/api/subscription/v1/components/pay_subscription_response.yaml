@@ -4,12 +4,12 @@ properties:
     type: string
     format: uuid
   status:
-    type: string
-    enum:
-      - ACTIVE
+    $ref: ./enums/subscription_status.yaml
   payment_id:
     type: string
     format: uuid
+  payment_method:
+    $ref: ./enums/payment_method.yaml
   expires_at:
     type: string
     format: date-time
