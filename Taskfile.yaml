@@ -212,10 +212,10 @@ tasks:
     desc: "Синхронизация зависимостей"
     cmds:
       - go work sync
-      - cmd: cd shared && go mod tidy -compat=1.24
-      - cmd: cd subscription && go mod tidy -compat=1.24
-      - cmd: cd payment && go mod tidy -compat=1.24
-      - cmd: cd catalog && go mod tidy -compat=1.24
+      - cmd: cd shared && go mod tidy -compat=1.25
+      - cmd: cd subscription && go mod tidy -compat=1.25
+      - cmd: cd payment && go mod tidy -compat=1.25
+      - cmd: cd catalog && go mod tidy -compat=1.25
 
   test-api:
     desc: "🧪 Запуск тестов для проверки API микросервисов кинотеатра"

@@ -10,8 +10,8 @@ option go_package ="github.com/LearLocker/streaming/grpc/pkg/proto/payment/v1;pa
 
 service PaymentService {
   rpc ProcessPayment(ProcessPaymentRequest) returns (ProcessPaymentResponse);
-  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
-  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+  rpc GetPayment(GetPaymentRequest)         returns (GetPaymentResponse);
+  rpc RefundPayment(RefundPaymentRequest)   returns (RefundPaymentResponse);
 }
 
 enum  PaymentStatus {
@@ -21,6 +21,19 @@ enum  PaymentStatus {
   PAYMENT_STATUS_SUCCESS     = 3;
   PAYMENT_STATUS_FAILED      = 4;
   PAYMENT_STATUS_REFUNDED    = 5;
+}
+
+message Payment {
+  string                    payment_id      = 1;
+  string                    subscription_id = 2;
+  string                    user_id         = 3;
+  int64                     amount          = 4;
+  string                    currency        = 5;
+  string                    method          = 6;
+  PaymentStatus             status          = 7;
+  google.protobuf.Timestamp created_at      = 8;
+  google.protobuf.Timestamp refunded_at     = 9; // пустой если не возвращён
+  string                    reason          = 10;
 }
 
 message ProcessPaymentRequest {
@@ -42,11 +55,7 @@ message GetPaymentRequest {
 }
 
 message GetPaymentResponse {
-  string                    payment_id      = 1;
-  string                    subscription_id = 2;
-  int64                     amount          = 3;
-  PaymentStatus             status          = 4;
-  google.protobuf.Timestamp created_at      = 5;
+  Payment payment = 1; // возвращаем полную модель
 }
 
 message RefundPaymentRequest {
