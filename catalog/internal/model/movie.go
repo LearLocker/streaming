@@ -1,4 +1,4 @@
-package models
+package model
 
 import (
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,4 +29,28 @@ type Movie struct {
 	Genre      []Genre       `bson:"genre" json:"genre" validate:"required,dive"`
 	Review     []Review      `bson:"review" json:"review"`
 	Ranking    Ranking       `bson:"ranking" json:"ranking" validate:"required"`
+}
+
+type AddMovie struct {
+	ImdbID     string
+	Title      string
+	PosterPath string
+	YouTubeID  string
+	Genre      []Genre
+	Ranking    Ranking
+}
+
+type Plan struct {
+	PlanID       string
+	Name         string
+	Price        int64
+	Currency     string
+	DurationDays int32
+	IsActive     bool
+}
+
+type UpdateReviewResult struct {
+	RankingName  string
+	RankingValue int32
+	Text         string
 }
