@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *service) CreateSubscription(
+func (s *Service) CreateSubscription(
 	ctx context.Context,
 	info model.CreateSubscriptionInfo,
 ) (*model.Subscription, error) {
@@ -46,7 +46,7 @@ func (s *service) CreateSubscription(
 	return sub, nil
 }
 
-func (s *service) GetSubscription(
+func (s *Service) GetSubscription(
 	ctx context.Context,
 	uuid string,
 ) (*model.Subscription, error) {
@@ -63,7 +63,7 @@ func (s *service) GetSubscription(
 	return sub, nil
 }
 
-func (s *service) PaySubscription(
+func (s *Service) PaySubscription(
 	ctx context.Context,
 	info model.PaySubscriptionInfo,
 ) (*model.Subscription, error) {
@@ -100,7 +100,7 @@ func (s *service) PaySubscription(
 	return sub, nil
 }
 
-func (s *service) CancelSubscription(
+func (s *Service) CancelSubscription(
 	ctx context.Context,
 	uuid string,
 ) error {

@@ -25,25 +25,25 @@ func NewRepository(client *mongo.Client) *repository {
 	return &repository{mongoClient: client}
 }
 
-func (r *repository) GetMovies(ctx context.Context, genreNames []string, page int32, pageSize int32) ([]*model.Movie, int32, error) {
+func (r *repository) GetMovies(ctx context.Context, movieFilter model.GetMoviesFilter) ([]*model.Movie, int32, error) {
 	collection := mongoDb.OpenCollection(r.mongoClient, "movies")
 
 	findOpts := options.Find()
 
 	// пагинация
-	if pageSize > 0 {
-		findOpts.SetLimit(int64(pageSize))
+	if movieFilter.PageSize > 0 {
+		findOpts.SetLimit(int64(movieFilter.PageSize))
 	}
-	if page > 1 && pageSize > 0 {
-		findOpts.SetSkip(int64((page - 1) * pageSize))
+	if movieFilter.Page > 1 && movieFilter.PageSize > 0 {
+		findOpts.SetSkip(int64((movieFilter.Page - 1) * movieFilter.PageSize))
 	}
 
 	// фильтр по жанрам если передан
 	filter := bson.D{}
-	if len(genreNames) > 0 {
+	if len(movieFilter.GenreNames) > 0 {
 		filter = bson.D{{
 			Key:   "genre.genre_name",
-			Value: bson.D{{Key: "$in", Value: genreNames}},
+			Value: bson.D{{Key: "$in", Value: movieFilter.GenreNames}},
 		}}
 	}
 

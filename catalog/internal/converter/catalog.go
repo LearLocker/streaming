@@ -87,6 +87,19 @@ func GenresToProto(genres []*model.Genre) []*catalogV1.Genre {
 	return result
 }
 
+func GetMoviesFilterFromProto(req *catalogV1.GetMoviesRequest) model.GetMoviesFilter {
+	genres := make([]string, 0, len(req.GetGenreNames()))
+	for _, g := range req.GetGenreNames() {
+		genres = append(genres, g)
+	}
+
+	return model.GetMoviesFilter{
+		Page:       req.GetPage(),
+		PageSize:   req.GetPageSize(),
+		GenreNames: req.GetGenreNames(),
+	}
+}
+
 func toString(v any) string {
 	if s, ok := v.(string); ok {
 		return s

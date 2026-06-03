@@ -6,9 +6,9 @@ import (
 	def "github.com/LearLocker/streaming/subscription/internal/service"
 )
 
-var _ def.SubscriptionService = (*service)(nil)
+var _ def.SubscriptionService = (*Service)(nil)
 
-type service struct {
+type Service struct {
 	subscriptionRepository repository.SubscriptionRepository
 	catalogClient          *clients.CatalogClient
 }
@@ -16,8 +16,8 @@ type service struct {
 func NewService(
 	subscriptionRepository repository.SubscriptionRepository,
 	catalogClient *clients.CatalogClient,
-) *service {
-	return &service{
+) *Service {
+	return &Service{
 		subscriptionRepository: subscriptionRepository,
 		catalogClient:          catalogClient,
 	}

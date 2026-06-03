@@ -11,17 +11,17 @@ import (
 	"github.com/LearLocker/streaming/subscription/internal/service"
 )
 
-type api struct {
+type Api struct {
 	subscriptionV1.UnimplementedHandler
 
 	subscriptionService service.SubscriptionService
 }
 
-func NewAPI(subscriptionService service.SubscriptionService) *api {
-	return &api{subscriptionService: subscriptionService}
+func NewAPI(subscriptionService service.SubscriptionService) *Api {
+	return &Api{subscriptionService: subscriptionService}
 }
 
-func (a *api) NewError(
+func (a *Api) NewError(
 	_ context.Context,
 	err error,
 ) *subscriptionV1.GenericErrorStatusCode {
@@ -34,7 +34,7 @@ func (a *api) NewError(
 	}
 }
 
-func (a *api) CreateSubscription(
+func (a *Api) CreateSubscription(
 	ctx context.Context,
 	req *subscriptionV1.CreateSubscriptionRequest,
 ) (subscriptionV1.CreateSubscriptionRes, error) {
@@ -53,7 +53,7 @@ func (a *api) CreateSubscription(
 	return converter.SubscriptionToAPI(sub), nil
 }
 
-func (a *api) GetSubscriptionByUuid(
+func (a *Api) GetSubscriptionByUuid(
 	ctx context.Context,
 	params subscriptionV1.GetSubscriptionByUuidParams,
 ) (subscriptionV1.GetSubscriptionByUuidRes, error) {
@@ -66,7 +66,7 @@ func (a *api) GetSubscriptionByUuid(
 	return converter.SubscriptionToAPI(sub), nil
 }
 
-func (a *api) PaySubscriptionByUuid(
+func (a *Api) PaySubscriptionByUuid(
 	ctx context.Context,
 	req *subscriptionV1.PaySubscriptionRequest,
 	params subscriptionV1.PaySubscriptionByUuidParams,
@@ -88,7 +88,7 @@ func (a *api) PaySubscriptionByUuid(
 	return converter.PaySubscriptionResponseToAPI(sub), nil
 }
 
-func (a *api) CancelSubscriptionByUuid(
+func (a *Api) CancelSubscriptionByUuid(
 	ctx context.Context,
 	params subscriptionV1.CancelSubscriptionByUuidParams,
 ) (subscriptionV1.CancelSubscriptionByUuidRes, error) {

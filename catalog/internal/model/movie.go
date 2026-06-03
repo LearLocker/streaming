@@ -54,3 +54,9 @@ type UpdateReviewResult struct {
 	RankingValue int32
 	Text         string
 }
+
+type GetMoviesFilter struct {
+	Page       int32
+	PageSize   int32
+	GenreNames []string
+}

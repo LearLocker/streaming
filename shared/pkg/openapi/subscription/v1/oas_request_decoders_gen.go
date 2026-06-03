@@ -22,7 +22,7 @@ func (s *Server) decodeCreateSubscriptionRequest(r *http.Request) (
 	var closers []func() error
 	close = func() error {
 		var merr error
-		// Close in reverse order, to match defer behavior.
+		// Close in reverse payment, to match defer behavior.
 		for i := len(closers) - 1; i >= 0; i-- {
 			c := closers[i]
 			merr = errors.Join(merr, c())
@@ -93,7 +93,7 @@ func (s *Server) decodePaySubscriptionByUuidRequest(r *http.Request) (
 	var closers []func() error
 	close = func() error {
 		var merr error
-		// Close in reverse order, to match defer behavior.
+		// Close in reverse payment, to match defer behavior.
 		for i := len(closers) - 1; i >= 0; i-- {
 			c := closers[i]
 			merr = errors.Join(merr, c())

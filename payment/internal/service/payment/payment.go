@@ -7,7 +7,7 @@ import (
 	"github.com/LearLocker/streaming/payment/internal/model"
 )
 
-func (s *service) ProcessPayment(ctx context.Context, info model.ProcessPaymentInfo) (*model.Payment, error) {
+func (s *Service) ProcessPayment(ctx context.Context, info model.ProcessPaymentInfo) (*model.Payment, error) {
 	if err := validateProcessInfo(info); err != nil {
 		return nil, err
 	}
@@ -20,7 +20,7 @@ func (s *service) ProcessPayment(ctx context.Context, info model.ProcessPaymentI
 	return payment, nil
 }
 
-func (s *service) GetPayment(ctx context.Context, paymentID string) (*model.Payment, error) {
+func (s *Service) GetPayment(ctx context.Context, paymentID string) (*model.Payment, error) {
 	if paymentID == "" {
 		return nil, fmt.Errorf("payment_id is required")
 	}
@@ -33,7 +33,7 @@ func (s *service) GetPayment(ctx context.Context, paymentID string) (*model.Paym
 	return payment, nil
 }
 
-func (s *service) RefundPayment(ctx context.Context, info model.RefundPaymentInfo) (*model.Payment, error) {
+func (s *Service) RefundPayment(ctx context.Context, info model.RefundPaymentInfo) (*model.Payment, error) {
 	if info.PaymentID == "" {
 		return nil, fmt.Errorf("payment_id is required")
 	}

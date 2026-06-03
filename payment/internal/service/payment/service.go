@@ -5,14 +5,14 @@ import (
 	def "github.com/LearLocker/streaming/payment/internal/service"
 )
 
-var _ def.PaymentService = (*service)(nil)
+var _ def.PaymentService = (*Service)(nil)
 
-type service struct {
+type Service struct {
 	paymentRepository repository.PaymentRepository
 }
 
-func NewService(paymentRepository repository.PaymentRepository) *service {
-	return &service{
+func NewService(paymentRepository repository.PaymentRepository) *Service {
+	return &Service{
 		paymentRepository: paymentRepository,
 	}
 }

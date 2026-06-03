@@ -7,7 +7,7 @@ import (
 )
 
 type CatalogRepository interface {
-	GetMovies(ctx context.Context, genreNames []string, page int32, pageSize int32) ([]*model.Movie, int32, error)
+	GetMovies(ctx context.Context, movieFilter model.GetMoviesFilter) ([]*model.Movie, int32, error)
 	GetMovieById(ctx context.Context, imdbId string) (*model.Movie, error)
 	AddMovie(ctx context.Context, info model.AddMovie) (string, error)
 	UpdateReview(ctx context.Context, imdbId string, authorId string, text string, ranking model.Ranking) error
