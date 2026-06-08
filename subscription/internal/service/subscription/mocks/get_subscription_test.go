@@ -10,15 +10,20 @@ import (
 func (s *ServiceSuite) TestGetSubscriptionSuccess() {
 	var (
 		UUID              = gofakeit.UUID()
-		modelSubscription = model.CreateSubscriptionInfo{
+		modelSubscription = model.Subscription{
+			UUID:          gofakeit.UUID(),
 			PlanID:        UUID,
+			PlanName:      gofakeit.Word(),
+			Amount:        int64(gofakeit.Price(12, 100)),
+			Currency:      gofakeit.CurrencyShort(),
 			PaymentMethod: RandomPaymentMethod(),
+			Status:        model.StatusPending,
 		}
 	)
 
 	s.subscriptionRepository.On("GetByUUID", s.ctx, UUID).Return(modelSubscription, nil)
 
-	res, err := s.subscriptionRepository.GetByUUID(s.ctx, UUID)
+	res, err := s.service.GetSubscription(s.ctx, UUID)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 }
@@ -30,7 +35,7 @@ func (s *ServiceSuite) TestGetSubscriptionNotFound() {
 
 	s.subscriptionRepository.On("GetByUUID", s.ctx, UUID).Return(nil, model.ErrSubscriptionNotFound)
 
-	res, err := s.subscriptionRepository.GetByUUID(s.ctx, UUID)
+	res, err := s.service.GetSubscription(s.ctx, UUID)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -47,7 +52,7 @@ func (s *ServiceSuite) TestGetSubscriptionServiceError() {
 
 	s.subscriptionRepository.On("GetByUUID", s.ctx, UUID).Return(nil, repoErr)
 
-	res, err := s.subscriptionRepository.GetByUUID(s.ctx, UUID)
+	res, err := s.service.GetSubscription(s.ctx, UUID)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

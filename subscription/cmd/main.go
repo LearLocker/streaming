@@ -11,8 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/LearLocker/streaming/subscription/internal/migrator"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -32,6 +36,48 @@ const (
 )
 
 func main() {
+	ctx := context.Background()
+
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf("failed to load .env file: %v\n", err)
+		return
+	}
+
+	dbURI := os.Getenv("DB_URI")
+
+	// Создаем соединение с базой данных
+	con, err := pgx.Connect(ctx, dbURI)
+	if err != nil {
+		log.Printf("failed to connect to database: %v\n", err)
+		return
+	}
+	defer func() {
+		cerr := con.Close(ctx)
+		if cerr != nil {
+			log.Printf("failed to close connection: %v\n", cerr)
+		}
+	}()
+
+	// Проверяем, что соединение с базой установлено
+	err = con.Ping(ctx)
+	if err != nil {
+		log.Printf("База данных недоступна: %v\n", err)
+		return
+	}
+
+	db := stdlib.OpenDB(*con.Config().Copy())
+
+	// Инициализируем мигратор
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	migratorRunner := migrator.NewMigrator(db, migrationsDir)
+
+	err = migratorRunner.Up()
+	if err != nil {
+		log.Printf("Ошибка миграции базы данных: %v\n", err)
+		return
+	}
+
 	catalogAddr := os.Getenv("CATALOG_ADDR")
 	if catalogAddr == "" {
 		catalogAddr = "localhost:50052"
@@ -48,7 +94,7 @@ func main() {
 	defer catalogConn.Close()
 
 	catalogClient := clients.NewCatalogClient(catalogV1.NewCatalogServiceClient(catalogConn))
-	subRepo := subscriptionRepository.NewRepository()
+	subRepo := subscriptionRepository.NewRepository(db)
 	subService := subscriptionService.NewService(subRepo, catalogClient)
 	subAPI := subscriptionApiV1.NewAPI(subService)
 

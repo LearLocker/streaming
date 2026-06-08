@@ -330,6 +330,102 @@ tasks:
         done
         exit $ERR
 
+  migrate:
+    desc: "Запустить миграции subscription сервиса"
+    dir: subscription
+    cmds:
+      - go run ./internal/migrator up
+
+  migrate:down:
+    desc: "Откатить последнюю миграцию"
+    dir: subscription
+    cmds:
+      - go run ./internal/migrator down
+
+  migrate:status:
+    desc: "Статус миграций"
+    dir: subscription
+    cmds:
+      - go run ./internal/migrator status
+
+  migrate:reset:
+    desc: "Откатить все миграции"
+    dir: subscription
+    cmds:
+      - go run ./internal/migrator reset
+
+  up-core:
+    desc: Поднять core контейнеры
+    dir: deploy/compose/core
+    cmds:
+      - echo "[task] 🚀 Поднимаем core контейнеры"
+      - docker compose up --build --detach
+
+  down-core:
+    desc: Остановить и удалить core контейнеры
+    dir: deploy/compose/core
+    cmds:
+      - echo "[task] 🛑 Останавливаем core контейнеры"
+      - docker compose down --volumes
+
+  up-catalog:
+    desc: Поднять Catalog сервис и все его зависимости
+    dir: deploy/compose/catalog
+    cmds:
+      - echo "[task] 📦 Поднимаем Catalog с зависимостями"
+      - docker compose up --build --detach
+
+  down-catalog:
+    desc: Остановить и удалить Catalog сервис и все его зависимости
+    dir: deploy/compose/catalog
+    cmds:
+      - echo "[task] 🛑 Останавливаем Catalog с зависимостями"
+      - docker compose down --volumes
+
+  up-subscription:
+    desc: Поднять Subscription сервис и все его зависимости
+    dir: deploy/compose/subscription
+    cmds:
+      - echo "[task] 📦 Поднимаем Subscription с зависимостями"
+      - docker compose up --build --detach
+
+  down-subscription:
+    desc: Остановить и удалить Subscription сервис и все его зависимости
+    dir: deploy/compose/subscription
+    cmds:
+      - echo "[task] 🛑 Останавливаем Subscription с зависимостями"
+      - docker compose down --volumes
+
+  up-payment:
+    desc: Поднять Payment сервис и все его зависимости
+    dir: deploy/compose/payment
+    cmds:
+      - echo "[task] 📦 Поднимаем Payment с зависимостями"
+      - docker compose up --build --detach
+
+  down-payment:
+    desc: Остановить и удалить Payment сервис и все его зависимости
+    dir: deploy/compose/payment
+    cmds:
+      - echo "[task] 🛑 Останавливаем Payment с зависимостями"
+      - docker compose down --volumes
+
+  up-all:
+    desc: Поднять все сервисы по очереди вместе с зависимостями
+    cmds:
+      - task up-core
+      - task up-catalog
+      - task up-subscription
+      - task up-payment
+
+  down-all:
+    desc: Остановить и удалить все сервисы по очереди вместе с зависимостями
+    cmds:
+      - task down-core
+      - task down-catalog
+      - task down-subscription
+      - task down-payment
+
   test-api:
     desc: "🧪 Запуск тестов для проверки API микросервисов кинотеатра"
     deps: [ grpcurl:install ]

@@ -24,7 +24,7 @@ func (s *ServiceSuite) TestGetPaymentSuccess() {
 	)
 	s.paymentRepository.On("GetByID", s.ctx, paymentID).Return(modelPayment, nil)
 
-	res, err := s.paymentRepository.GetByID(s.ctx, paymentID)
+	res, err := s.service.GetPayment(s.ctx, paymentID)
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Require().Equal(modelPayment, res)
@@ -37,7 +37,7 @@ func (s *ServiceSuite) TestGetPaymentNotFound() {
 
 	s.paymentRepository.On("GetByID", s.ctx, paymentID).Return(nil, model.ErrPaymentNotFound)
 
-	res, err := s.paymentRepository.GetByID(s.ctx, paymentID)
+	res, err := s.service.GetPayment(s.ctx, paymentID)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -54,7 +54,7 @@ func (s *ServiceSuite) TestGetPaymentRepoError() {
 
 	s.paymentRepository.On("GetByID", s.ctx, paymentID).Return(model.Payment{}, repoErr)
 
-	res, err := s.paymentRepository.GetByID(s.ctx, paymentID)
+	res, err := s.service.GetPayment(s.ctx, paymentID)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

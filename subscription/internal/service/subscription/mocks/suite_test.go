@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	clientsMocks "github.com/LearLocker/streaming/subscription/internal/clients/mocks"
 	"github.com/LearLocker/streaming/subscription/internal/model"
 	"github.com/LearLocker/streaming/subscription/internal/repository/mocks"
 	subscriptionService "github.com/LearLocker/streaming/subscription/internal/service/subscription"
@@ -20,14 +21,14 @@ type ServiceSuite struct {
 
 	service *subscriptionService.Service
 
-	catalogClient *mocks.CatalogClient
+	catalogClient *clientsMocks.CatalogClient
 }
 
 func (s *ServiceSuite) SetupTest() {
 	s.ctx = context.Background()
 
 	s.subscriptionRepository = mocks.NewSubscriptionRepository(s.T())
-	s.catalogClient = mocks.NewCatalogClient(s.T())
+	s.catalogClient = clientsMocks.NewCatalogClient(s.T())
 
 	s.service = subscriptionService.NewService(
 		s.subscriptionRepository,

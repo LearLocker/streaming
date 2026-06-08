@@ -1,21 +1,17 @@
 package subscription
 
 import (
-	"sync"
+	"database/sql"
 
-	"github.com/LearLocker/streaming/subscription/internal/model"
 	def "github.com/LearLocker/streaming/subscription/internal/repository"
 )
 
 var _ def.SubscriptionRepository = (*repository)(nil)
 
 type repository struct {
-	mu            sync.RWMutex
-	subscriptions map[string]*model.Subscription
+	db *sql.DB
 }
 
-func NewRepository() *repository {
-	return &repository{
-		subscriptions: make(map[string]*model.Subscription),
-	}
+func NewRepository(db *sql.DB) *repository {
+	return &repository{db: db}
 }

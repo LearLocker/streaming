@@ -31,9 +31,9 @@ func (s *ServiceSuite) TestProcessPaymentSuccess() {
 		}
 	)
 
-	s.paymentRepository.On("ProcessPayment", s.ctx, processPaymentInfo).Return(modelPayment, nil)
+	s.paymentRepository.On("Create", s.ctx, processPaymentInfo).Return(modelPayment, nil)
 
-	res, err := s.paymentRepository.Create(s.ctx, processPaymentInfo)
+	res, err := s.service.ProcessPayment(s.ctx, processPaymentInfo)
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Require().Equal(modelPayment, res)
@@ -50,9 +50,9 @@ func (s *ServiceSuite) TestProcessPaymentNotFound() {
 		}
 	)
 
-	s.paymentRepository.On("ProcessPayment", s.ctx, processPaymentInfo).Return(model.Payment{}, nil)
+	s.paymentRepository.On("Create", s.ctx, processPaymentInfo).Return(model.Payment{}, nil)
 
-	res, err := s.paymentRepository.Create(s.ctx, processPaymentInfo)
+	res, err := s.service.ProcessPayment(s.ctx, processPaymentInfo)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -74,9 +74,9 @@ func (s *ServiceSuite) TestProcessPaymentRepoError() {
 		}
 	)
 
-	s.paymentRepository.On("ProcessPayment", s.ctx, processPaymentInfo).Return(nil, repoErr)
+	s.paymentRepository.On("Create", s.ctx, processPaymentInfo).Return(nil, repoErr)
 
-	res, err := s.paymentRepository.Create(s.ctx, processPaymentInfo)
+	res, err := s.service.ProcessPayment(s.ctx, processPaymentInfo)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

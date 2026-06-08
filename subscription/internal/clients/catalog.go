@@ -21,15 +21,26 @@ type Plan struct {
 	IsActive     bool
 }
 
-type CatalogClient struct {
+// CatalogClient — интерфейс, по которому mockery сгенерирует мок.
+// Называем так же, как struct, чтобы не менять имя в .mockery.yaml.
+//
+//go:generate mockery --name=CatalogClient
+type CatalogClient interface {
+	GetPlan(ctx context.Context, planID string) (*Plan, error)
+	ListPlans(ctx context.Context, onlyActive bool) ([]*Plan, error)
+}
+
+// catalogClient — приватная реализация интерфейса.
+type catalogClient struct {
 	client catalogV1.CatalogServiceClient
 }
 
-func NewCatalogClient(client catalogV1.CatalogServiceClient) *CatalogClient {
-	return &CatalogClient{client: client}
+// NewCatalogClient возвращает конкретную реализацию CatalogClient.
+func NewCatalogClient(client catalogV1.CatalogServiceClient) CatalogClient {
+	return &catalogClient{client: client}
 }
 
-func (c *CatalogClient) GetPlan(ctx context.Context, planID string) (*Plan, error) {
+func (c *catalogClient) GetPlan(ctx context.Context, planID string) (*Plan, error) {
 	if planID == "" {
 		return nil, fmt.Errorf("plan_id is required")
 	}
@@ -53,7 +64,7 @@ func (c *CatalogClient) GetPlan(ctx context.Context, planID string) (*Plan, erro
 	return planFromProto(resp.GetPlan()), nil
 }
 
-func (c *CatalogClient) ListPlans(ctx context.Context, onlyActive bool) ([]*Plan, error) {
+func (c *catalogClient) ListPlans(ctx context.Context, onlyActive bool) ([]*Plan, error) {
 	resp, err := c.client.ListPlans(ctx, &catalogV1.ListPlansRequest{
 		OnlyActive: onlyActive,
 	})

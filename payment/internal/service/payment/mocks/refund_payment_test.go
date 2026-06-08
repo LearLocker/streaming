@@ -31,7 +31,7 @@ func (s *ServiceSuite) TestRefundPaymentSuccess() {
 
 	s.paymentRepository.On("Refund", s.ctx, refundPaymentInfo).Return(modelRefundPayment, nil)
 
-	res, err := s.paymentRepository.Refund(s.ctx, refundPaymentInfo)
+	res, err := s.service.RefundPayment(s.ctx, refundPaymentInfo)
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Require().Equal(modelRefundPayment, res)
@@ -47,7 +47,7 @@ func (s *ServiceSuite) TestRefundPaymentNotFound() {
 
 	s.paymentRepository.On("Refund", s.ctx, refundPaymentInfo).Return(model.Payment{}, nil)
 
-	res, err := s.paymentRepository.Refund(s.ctx, refundPaymentInfo)
+	res, err := s.service.RefundPayment(s.ctx, refundPaymentInfo)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -68,7 +68,7 @@ func (s *ServiceSuite) TestRefundPaymentRepoError() {
 
 	s.paymentRepository.On("Refund", s.ctx, refundPaymentInfo).Return(model.Payment{}, repoErr)
 
-	res, err := s.paymentRepository.Refund(s.ctx, refundPaymentInfo)
+	res, err := s.service.RefundPayment(s.ctx, refundPaymentInfo)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

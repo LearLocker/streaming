@@ -13,7 +13,7 @@ func (s *ServiceSuite) TestCancelSubscriptionSuccess() {
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(nil)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	err := s.service.CancelSubscription(s.ctx, UUID)
 	s.Require().NoError(err)
 }
 
@@ -25,7 +25,7 @@ func (s *ServiceSuite) TestCancelSubscriptionNotFound() {
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(model.ErrSubscriptionNotFound)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	err := s.service.CancelSubscription(s.ctx, UUID)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, model.ErrSubscriptionNotFound)
 }
@@ -39,7 +39,7 @@ func (s *ServiceSuite) TestCancelSubscriptionServiceError() {
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(repoErr)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	err := s.service.CancelSubscription(s.ctx, UUID)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 }

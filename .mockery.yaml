@@ -30,3 +30,7 @@ packages:
   github.com/LearLocker/streaming/subscription/internal/repository:
     config:
       include-regex: ".*Repository"
+
+  github.com/LearLocker/streaming/subscription/internal/clients:
+    config:
+      include-regex: ".*Client"

@@ -10,12 +10,12 @@ var _ def.SubscriptionService = (*Service)(nil)
 
 type Service struct {
 	subscriptionRepository repository.SubscriptionRepository
-	catalogClient          *clients.CatalogClient
+	catalogClient          clients.CatalogClient // интерфейс, а не *clients.catalogClient
 }
 
 func NewService(
 	subscriptionRepository repository.SubscriptionRepository,
-	catalogClient *clients.CatalogClient,
+	catalogClient clients.CatalogClient,
 ) *Service {
 	return &Service{
 		subscriptionRepository: subscriptionRepository,

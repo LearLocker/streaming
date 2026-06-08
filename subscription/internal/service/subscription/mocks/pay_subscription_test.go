@@ -13,7 +13,7 @@ func (s *ServiceSuite) TestPaySubscriptionSuccess() {
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(nil)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	err := s.service.PaySubscription(s.ctx, paySubscriptionInfo)
 	s.Require().NoError(err)
 }
 
@@ -25,7 +25,7 @@ func (s *ServiceSuite) TestPaySubscriptionNotFound() {
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(model.ErrSubscriptionNotFound)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	err := s.service.PaySubscription(s.ctx, paySubscriptionInfo)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, model.ErrSubscriptionNotFound)
 }
@@ -35,11 +35,16 @@ func (s *ServiceSuite) TestPaySubscriptionServiceError() {
 		repoErr = gofakeit.Error()
 		UUID    = gofakeit.UUID()
 		Status  = model.StatusActive
+
+		paySubscriptionInfo = model.PaySubscriptionInfo{
+			UUID:          UUID,
+			PaymentMethod: RandomPaymentMethod(),
+		}
 	)
 
 	s.subscriptionRepository.On("UpdateStatus", s.ctx, UUID, Status, nil).Return(repoErr)
 
-	err := s.subscriptionRepository.UpdateStatus(s.ctx, UUID, Status, nil)
+	res, err := s.service.PaySubscription(s.ctx, paySubscriptionInfo)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 }
