@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"net"
@@ -14,8 +15,6 @@ import (
 	"github.com/LearLocker/streaming/subscription/internal/migrator"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -38,45 +37,47 @@ const (
 func main() {
 	ctx := context.Background()
 
-	err := godotenv.Load(".env")
-	if err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("failed to load .env file: %v\n", err)
-		return
 	}
 
 	dbURI := os.Getenv("DB_URI")
-
-	// Создаем соединение с базой данных
-	con, err := pgx.Connect(ctx, dbURI)
-	if err != nil {
-		log.Printf("failed to connect to database: %v\n", err)
-		return
-	}
-	defer func() {
-		cerr := con.Close(ctx)
-		if cerr != nil {
-			log.Printf("failed to close connection: %v\n", cerr)
-		}
-	}()
-
-	// Проверяем, что соединение с базой установлено
-	err = con.Ping(ctx)
-	if err != nil {
-		log.Printf("База данных недоступна: %v\n", err)
-		return
+	if dbURI == "" {
+		log.Fatal("DB_URI is required")
 	}
 
-	db := stdlib.OpenDB(*con.Config().Copy())
+	// открываем пул соединений сразу через stdlib
+	// pgx используется как драйвер для database/sql
+	db, err := sql.Open("pgx", dbURI)
+	if err != nil {
+		log.Fatalf("failed to open db: %v\n", err)
+	}
+	defer db.Close()
 
-	// Инициализируем мигратор
+	// настройка пула
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// проверяем соединение
+	if err = db.PingContext(ctx); err != nil {
+		log.Fatalf("database unavailable: %v\n", err)
+	}
+
+	log.Println("database connected")
+
+	// миграции
 	migrationsDir := os.Getenv("MIGRATIONS_DIR")
-	migratorRunner := migrator.NewMigrator(db, migrationsDir)
-
-	err = migratorRunner.Up()
-	if err != nil {
-		log.Printf("Ошибка миграции базы данных: %v\n", err)
-		return
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
 	}
+
+	migratorRunner := migrator.NewMigrator(db, migrationsDir)
+	if err = migratorRunner.Up(); err != nil {
+		log.Fatalf("migration failed: %v\n", err)
+	}
+
+	log.Println("migrations applied")
 
 	catalogAddr := os.Getenv("CATALOG_ADDR")
 	if catalogAddr == "" {

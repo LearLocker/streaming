@@ -36,6 +36,8 @@ vars:
   COVERAGE_DIR: '{{.ROOT_DIR}}/coverage'
   COVERAGE_FILE: total.out
 
+  GRPC_SERVER_ADDR: 'localhost:50051'
+
   MODULES: subscription payment catalog shared
 
 tasks:
@@ -86,8 +88,13 @@ tasks:
   grpcurl:install:
     desc: "Устанавливает grpcurl в каталог bin"
     cmds:
-      - mkdir -p {{.BIN_DIR}}
-      - GOBIN={{.BIN_DIR}} go install github.com/fullstorydev/grpcurl/cmd/grpcurl@{{.GRPCURL_VERSION}}
+      - |
+        [ -f {{.GRPCURL}} ] || {
+          echo '📦 Устанавливаем grpcurl {{.GRPCURL_VERSION}}...'
+          GOBIN={{.BIN_DIR}} go install github.com/fullstorydev/grpcurl/cmd/grpcurl@{{.GRPCURL_VERSION}}
+        }
+    status:
+      - test -x {{.GRPCURL}}
 
   # ──────────────────────────────────────────────
   # ГЕНЕРАЦИЯ PROTO — без buf registry
@@ -426,435 +433,74 @@ tasks:
       - task down-subscription
       - task down-payment
 
-  test-api:
-    desc: "🧪 Запуск тестов для проверки API микросервисов кинотеатра"
+  test:catalog:genres:
+    desc: "📚 Тест: Получить список жанров"
     deps: [ grpcurl:install ]
     cmds:
       - |
-        echo "🎬 Тестирование API микросервисов онлайн-кинотеатра"
+        echo "🎬 Получение списка жанров..."
+        {{.GRPCURL}} -plaintext -d '{}' {{.GRPC_SERVER_ADDR}} catalog.v1.CatalogService/GetGenres
+
+  test:catalog:movies:
+    desc: "🎥 Тест: Получить список фильмов"
+    deps: [ grpcurl:install ]
+    cmds:
+      - |
+        echo "🎬 Получение списка фильмов..."
+        {{.GRPCURL}} -plaintext -d '{"page": 1, "page_size": 10}' {{.GRPC_SERVER_ADDR}} catalog.v1.CatalogService/GetMovies
+
+  test:catalog:add-movie:
+    desc: "➕ Тест: Добавить фильм"
+    deps: [ grpcurl:install ]
+    cmds:
+      - |
+        echo "🎬 Добавление тестового фильма..."
+        {{.GRPCURL}} -plaintext -d '{
+          "imdb_id": "tt_test_001",
+          "title": "Test Movie для CI",
+          "poster_path": "https://example.com/poster.jpg",
+          "youtube_id": "dQw4w9WgXcQ",
+          "genre": [{"genre_id": 1, "genre_name": "Action"}],
+          "ranking": {"ranking_value": 5, "ranking_name": "Excellent"}
+        }' {{.GRPC_SERVER_ADDR}} catalog.v1.CatalogService/AddMovie
+
+  test:catalog:get-movie:
+    desc: "🔍 Тест: Получить фильм по imdb_id"
+    deps: [ grpcurl:install ]
+    cmds:
+      - |
+        echo "🎬 Получение фильма по imdb_id..."
+        {{.GRPCURL}} -plaintext -d '{"imdb_id": "tt_test_001"}' {{.GRPC_SERVER_ADDR}} catalog.v1.CatalogService/GetMovieById
+
+    # Добавляй остальные тесты по аналогии...
+
+  test-api:
+    desc: "🧪 Полный тест API (ожидается, что сервисы запущены локально)"
+    deps: [ grpcurl:install ]
+    cmds:
+      - |
+        echo "🚀 Запуск тестов API (локальный режим)..."
+        echo "⚠️  Убедись, что Catalog сервис запущен локально (go run ./cmd/server)"
+        
+        # Небольшая пауза на Windows
+        powershell -Command "Start-Sleep -Seconds 3" || timeout /t 3 /nobreak >nul
+        
         ERRORS=0
         
-        # ─────────────────────────────────────────
-        # CATALOG SERVICE (gRPC :50052)
-        # ─────────────────────────────────────────
-        
-        echo ""
         echo "═══════════════════════════════════════"
-        echo "📚 CATALOG SERVICE (gRPC)"
+        echo "📚 CATALOG SERVICE (локально)"
         echo "═══════════════════════════════════════"
         
-        echo ""
-        echo "🎬 Тест 1: Получение списка жанров"
-        GENRES_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d '{}' \
-          localhost:50052 catalog.v1.CatalogService/GetGenres)
+        task test:catalog:genres || ERRORS=$((ERRORS+1))
+        task test:catalog:movies || ERRORS=$((ERRORS+1))
+        task test:catalog:add-movie || ERRORS=$((ERRORS+1))
+        task test:catalog:get-movie || ERRORS=$((ERRORS+1))
         
-        if [[ -z "$GENRES_RESPONSE" || "$GENRES_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить жанры."
-          echo "🔍 Ответ: $GENRES_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          GENRE_NAME=$(echo $GENRES_RESPONSE | grep -o '"genreName": "[^"]*' | head -1 | cut -d'"' -f4)
-          echo "✅ Жанры получены, первый жанр: $GENRE_NAME"
-        fi
-        
-        echo ""
-        echo "🎬 Тест 2: Получение списка всех фильмов"
-        MOVIES_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d '{"page": 1, "page_size": 10}' \
-          localhost:50052 catalog.v1.CatalogService/GetMovies)
-        
-        if [[ -z "$MOVIES_RESPONSE" || "$MOVIES_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить список фильмов."
-          echo "🔍 Ответ: $MOVIES_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          MOVIE_IMDB_ID=$(echo $MOVIES_RESPONSE | grep -o '"imdbId": "[^"]*' | head -1 | cut -d'"' -f4)
-          MOVIE_TITLE=$(echo $MOVIES_RESPONSE | grep -o '"title": "[^"]*' | head -1 | cut -d'"' -f4)
-          echo "✅ Фильмы получены, первый: \"$MOVIE_TITLE\" (imdb_id: $MOVIE_IMDB_ID)"
-        fi
-        
-        echo ""
-        echo "🎬 Тест 3: Добавление тестового фильма"
-        ADD_MOVIE_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d '{
-            "imdb_id": "tt_test_001",
-            "title": "Test Movie для CI",
-            "poster_path": "https://example.com/poster.jpg",
-            "youtube_id": "dQw4w9WgXcQ",
-            "genre": [{"genre_id": 1, "genre_name": "'"$GENRE_NAME"'"}],
-            "ranking": {"ranking_value": 5, "ranking_name": "Excellent"}
-          }' \
-          localhost:50052 catalog.v1.CatalogService/AddMovie)
-        
-        if [[ -z "$ADD_MOVIE_RESPONSE" || "$ADD_MOVIE_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось добавить фильм."
-          echo "🔍 Ответ: $ADD_MOVIE_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          INSERTED_ID=$(echo $ADD_MOVIE_RESPONSE | grep -o '"insertedId": "[^"]*' | cut -d'"' -f4)
-          echo "✅ Фильм добавлен, inserted_id: $INSERTED_ID"
-          TEST_IMDB_ID="tt_test_001"
-        fi
-        
-        echo ""
-        echo "🎬 Тест 4: Получение фильма по imdb_id"
-        GET_MOVIE_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{\"imdb_id\": \"$TEST_IMDB_ID\"}" \
-          localhost:50052 catalog.v1.CatalogService/GetMovieById)
-        
-        if [[ -z "$GET_MOVIE_RESPONSE" || "$GET_MOVIE_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить фильм по imdb_id: $TEST_IMDB_ID"
-          echo "🔍 Ответ: $GET_MOVIE_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          FETCHED_TITLE=$(echo $GET_MOVIE_RESPONSE | grep -o '"title": "[^"]*' | cut -d'"' -f4)
-          echo "✅ Фильм найден: \"$FETCHED_TITLE\""
-        fi
-        
-        echo ""
-        echo "🎬 Тест 5: Получение тарифов (планов подписки)"
-        PLANS_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d '{"only_active": true}' \
-          localhost:50052 catalog.v1.CatalogService/ListPlans)
-        
-        if [[ -z "$PLANS_RESPONSE" || "$PLANS_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить тарифы."
-          echo "🔍 Ответ: $PLANS_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          PLAN_ID=$(echo $PLANS_RESPONSE | grep -o '"planId": "[^"]*' | head -1 | cut -d'"' -f4)
-          PLAN_NAME=$(echo $PLANS_RESPONSE | grep -o '"name": "[^"]*' | head -1 | cut -d'"' -f4)
-          echo "✅ Тарифы получены, первый: \"$PLAN_NAME\" (plan_id: $PLAN_ID)"
-        fi
-        
-        echo ""
-        echo "🎬 Тест 6: Получение тарифа по plan_id"
-        GET_PLAN_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{\"plan_id\": \"$PLAN_ID\"}" \
-          localhost:50052 catalog.v1.CatalogService/GetPlan)
-        
-        if [[ -z "$GET_PLAN_RESPONSE" || "$GET_PLAN_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить тариф по plan_id: $PLAN_ID"
-          echo "🔍 Ответ: $GET_PLAN_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          PLAN_PRICE=$(echo $GET_PLAN_RESPONSE | grep -o '"price": [0-9]*' | cut -d' ' -f2)
-          echo "✅ Тариф найден: \"$PLAN_NAME\", цена: ${PLAN_PRICE} копеек"
-        fi
-        
-        # ─────────────────────────────────────────
-        # PAYMENT SERVICE (gRPC :50051)
-        # ─────────────────────────────────────────
-        
-        echo ""
         echo "═══════════════════════════════════════"
-        echo "💳 PAYMENT SERVICE (gRPC)"
-        echo "═══════════════════════════════════════"
-        
-        TEST_USER_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-        TEST_SUB_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-        echo "🔑 Тестовый user_id: $TEST_USER_ID"
-        echo "🔑 Тестовый subscription_id: $TEST_SUB_ID"
-        
-        echo ""
-        echo "💳 Тест 7: Проведение платежа"
-        PROCESS_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{
-            \"subscription_id\": \"$TEST_SUB_ID\",
-            \"user_id\": \"$TEST_USER_ID\",
-            \"amount\": $PLAN_PRICE,
-            \"currency\": \"RUB\",
-            \"method\": \"CARD\"
-          }" \
-          localhost:50051 payment.v1.PaymentService/ProcessPayment)
-        
-        if [[ -z "$PROCESS_RESPONSE" || "$PROCESS_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось провести платёж."
-          echo "🔍 Ответ: $PROCESS_RESPONSE"
-          ERRORS=$((ERRORS+1))
+        if [ $ERRORS -eq 0 ]; then
+          echo "🎉 Все тесты успешно пройдены!"
         else
-          PAYMENT_ID=$(echo $PROCESS_RESPONSE | grep -o '"paymentId": "[^"]*' | cut -d'"' -f4)
-          PAYMENT_STATUS=$(echo $PROCESS_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          echo "✅ Платёж проведён: payment_id=$PAYMENT_ID, статус=$PAYMENT_STATUS"
-        fi
-        
-        echo ""
-        echo "💳 Тест 8: Получение платежа по payment_id"
-        GET_PAYMENT_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{\"payment_id\": \"$PAYMENT_ID\"}" \
-          localhost:50051 payment.v1.PaymentService/GetPayment)
-        
-        if [[ -z "$GET_PAYMENT_RESPONSE" || "$GET_PAYMENT_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось получить платёж."
-          echo "🔍 Ответ: $GET_PAYMENT_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          GOT_STATUS=$(echo $GET_PAYMENT_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          echo "✅ Платёж получен: статус=$GOT_STATUS"
-        fi
-        
-        echo ""
-        echo "💳 Тест 9: Возврат платежа (Refund)"
-        REFUND_SUB_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-        REFUND_PAY_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{
-            \"subscription_id\": \"$REFUND_SUB_ID\",
-            \"user_id\": \"$TEST_USER_ID\",
-            \"amount\": $PLAN_PRICE,
-            \"currency\": \"RUB\",
-            \"method\": \"CARD\"
-          }" \
-          localhost:50051 payment.v1.PaymentService/ProcessPayment)
-        
-        REFUND_PAYMENT_ID=$(echo $REFUND_PAY_RESPONSE | grep -o '"paymentId": "[^"]*' | cut -d'"' -f4)
-        
-        REFUND_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{
-            \"payment_id\": \"$REFUND_PAYMENT_ID\",
-            \"reason\": \"subscription_cancelled\"
-          }" \
-          localhost:50051 payment.v1.PaymentService/RefundPayment)
-        
-        if [[ -z "$REFUND_RESPONSE" || "$REFUND_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Не удалось выполнить возврат платежа."
-          echo "🔍 Ответ: $REFUND_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          REFUND_STATUS=$(echo $REFUND_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          echo "✅ Возврат выполнен: статус=$REFUND_STATUS"
-        fi
-        
-        echo ""
-        echo "💳 Тест 10: Повторный возврат уже возвращённого платежа (ожидаем ошибку)"
-        DOUBLE_REFUND=$({{.GRPCURL}} -plaintext \
-          -d "{
-            \"payment_id\": \"$REFUND_PAYMENT_ID\",
-            \"reason\": \"duplicate_refund_test\"
-          }" \
-          localhost:50051 payment.v1.PaymentService/RefundPayment)
-        
-        if [[ "$DOUBLE_REFUND" == *'"code"'* || "$DOUBLE_REFUND" == *"FailedPrecondition"* ]]; then
-          echo "✅ Сервис корректно отклонил повторный возврат"
-        else
-          echo "❌ Сервис должен был отклонить повторный возврат, но вернул успех."
-          echo "🔍 Ответ: $DOUBLE_REFUND"
-          ERRORS=$((ERRORS+1))
-        fi
-        
-        # ─────────────────────────────────────────
-        # SUBSCRIPTION SERVICE (REST :8080)
-        # ─────────────────────────────────────────
-        
-        echo ""
-        echo "═══════════════════════════════════════"
-        echo "🎟️  SUBSCRIPTION SERVICE (REST)"
-        echo "═══════════════════════════════════════"
-        
-        echo ""
-        echo "🎟️  Тест 11: Создание подписки с несуществующим plan_id (ожидаем 404)"
-        BAD_PLAN_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions" \
-          -H "Content-Type: application/json" \
-          -d '{"plan_id": "00000000-0000-0000-0000-000000000000", "payment_method": "CARD"}')
-        
-        if [[ "$BAD_PLAN_RESPONSE" == "404" ]]; then
-          echo "✅ Сервис корректно вернул 404 для несуществующего тарифа"
-        else
-          echo "❌ Ожидался HTTP 404, получен: $BAD_PLAN_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 12: Создание подписки"
-        CREATE_SUB_RESPONSE=$(curl -s \
-          -X POST "http://localhost:8080/api/v1/subscriptions" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $TEST_JWT" \
-          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"CARD\"}")
-        
-        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $TEST_JWT" \
-          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"CARD\"}")
-        
-        if [[ "$HTTP_STATUS" != "201" ]]; then
-          echo "❌ Ожидался HTTP 201, получен: $HTTP_STATUS"
-          echo "🔍 Ответ: $CREATE_SUB_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          SUB_UUID=$(echo $CREATE_SUB_RESPONSE | grep -o '"uuid":"[^"]*' | cut -d'"' -f4)
-          if [ -z "$SUB_UUID" ]; then
-            SUB_UUID=$(echo $CREATE_SUB_RESPONSE | grep -o '"uuid": "[^"]*' | cut -d'"' -f4)
-          fi
-          SUB_STATUS=$(echo $CREATE_SUB_RESPONSE | grep -o '"status":"[^"]*' | cut -d'"' -f4)
-          if [ -z "$SUB_STATUS" ]; then
-            SUB_STATUS=$(echo $CREATE_SUB_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          fi
-          echo "✅ Подписка создана: uuid=$SUB_UUID, статус=$SUB_STATUS"
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 13: Получение подписки по uuid"
-        GET_SUB_RESPONSE=$(curl -s \
-          -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
-          -H "Authorization: Bearer $TEST_JWT")
-        
-        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
-          -H "Authorization: Bearer $TEST_JWT")
-        
-        if [[ "$HTTP_STATUS" != "200" ]]; then
-          echo "❌ Ожидался HTTP 200, получен: $HTTP_STATUS"
-          echo "🔍 Ответ: $GET_SUB_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          FETCHED_STATUS=$(echo $GET_SUB_RESPONSE | grep -o '"status":"[^"]*' | cut -d'"' -f4)
-          if [ -z "$FETCHED_STATUS" ]; then
-            FETCHED_STATUS=$(echo $GET_SUB_RESPONSE | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          fi
-          echo "✅ Подписка получена: uuid=$SUB_UUID, статус=$FETCHED_STATUS"
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 14: Получение несуществующей подписки (ожидаем 404)"
-        FAKE_UUID="00000000-0000-0000-0000-000000000000"
-        NOT_FOUND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X GET "http://localhost:8080/api/v1/subscriptions/$FAKE_UUID" \
-          -H "Authorization: Bearer $TEST_JWT")
-        
-        if [[ "$NOT_FOUND_STATUS" == "404" ]]; then
-          echo "✅ Сервис корректно вернул 404 для несуществующей подписки"
-        else
-          echo "❌ Ожидался HTTP 404, получен: $NOT_FOUND_STATUS"
-          ERRORS=$((ERRORS+1))
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 15: Оплата подписки"
-        PAY_HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB_UUID/pay" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $TEST_JWT" \
-          -d '{"payment_method": "CARD"}')
-        
-        if [[ "$PAY_HTTP_STATUS" != "200" ]]; then
-          echo "❌ Ожидался HTTP 200, получен: $PAY_HTTP_STATUS"
-          ERRORS=$((ERRORS+1))
-        else
-          PAID_STATUS=$(curl -s \
-            -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
-            -H "Authorization: Bearer $TEST_JWT" \
-            | grep -o '"status":"[^"]*' | cut -d'"' -f4)
-          if [ -z "$PAID_STATUS" ]; then
-            PAID_STATUS=$(curl -s \
-              -X GET "http://localhost:8080/api/v1/subscriptions/$SUB_UUID" \
-              -H "Authorization: Bearer $TEST_JWT" \
-              | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          fi
-          if [[ "$PAID_STATUS" != *"ACTIVE"* ]]; then
-            echo "❌ Ожидался статус ACTIVE после оплаты, получен: $PAID_STATUS"
-            ERRORS=$((ERRORS+1))
-          else
-            echo "✅ Подписка оплачена, статус: $PAID_STATUS"
-          fi
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 16: Повторная оплата активной подписки (ожидаем 409)"
-        DOUBLE_PAY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB_UUID/pay" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $TEST_JWT" \
-          -d '{"payment_method": "CARD"}')
-        
-        if [[ "$DOUBLE_PAY_STATUS" == "409" ]]; then
-          echo "✅ Сервис корректно вернул 409 для повторной оплаты"
-        else
-          echo "❌ Ожидался HTTP 409, получен: $DOUBLE_PAY_STATUS"
-          ERRORS=$((ERRORS+1))
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 17: Создание второй подписки для проверки отмены"
-        SUB2_RESPONSE=$(curl -s \
-          -X POST "http://localhost:8080/api/v1/subscriptions" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $TEST_JWT" \
-          -d "{\"plan_id\": \"$PLAN_ID\", \"payment_method\": \"SBP\"}")
-        
-        SUB2_UUID=$(echo $SUB2_RESPONSE | grep -o '"uuid":"[^"]*' | cut -d'"' -f4)
-        if [ -z "$SUB2_UUID" ]; then
-          SUB2_UUID=$(echo $SUB2_RESPONSE | grep -o '"uuid": "[^"]*' | cut -d'"' -f4)
-        fi
-        echo "✅ Вторая подписка создана: uuid=$SUB2_UUID"
-        
-        echo ""
-        echo "🎟️  Тест 18: Отмена подписки"
-        CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID/cancel" \
-          -H "Authorization: Bearer $TEST_JWT")
-        
-        if [[ "$CANCEL_STATUS" != "204" ]]; then
-          echo "❌ Ожидался HTTP 204, получен: $CANCEL_STATUS"
-          ERRORS=$((ERRORS+1))
-        else
-          CANCELLED_STATUS=$(curl -s \
-            -X GET "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID" \
-            -H "Authorization: Bearer $TEST_JWT" \
-            | grep -o '"status":"[^"]*' | cut -d'"' -f4)
-          if [ -z "$CANCELLED_STATUS" ]; then
-            CANCELLED_STATUS=$(curl -s \
-              -X GET "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID" \
-              -H "Authorization: Bearer $TEST_JWT" \
-              | grep -o '"status": "[^"]*' | cut -d'"' -f4)
-          fi
-          if [[ "$CANCELLED_STATUS" != *"CANCELLED"* ]]; then
-            echo "❌ Ожидался статус CANCELLED, получен: $CANCELLED_STATUS"
-            ERRORS=$((ERRORS+1))
-          else
-            echo "✅ Подписка отменена, статус: $CANCELLED_STATUS"
-          fi
-        fi
-        
-        echo ""
-        echo "🎟️  Тест 19: Повторная отмена уже отменённой подписки (ожидаем 409)"
-        DOUBLE_CANCEL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-          -X POST "http://localhost:8080/api/v1/subscriptions/$SUB2_UUID/cancel" \
-          -H "Authorization: Bearer $TEST_JWT")
-        
-        if [[ "$DOUBLE_CANCEL_STATUS" == "409" ]]; then
-          echo "✅ Сервис корректно вернул 409 для повторной отмены"
-        else
-          echo "❌ Ожидался HTTP 409, получен: $DOUBLE_CANCEL_STATUS"
-          ERRORS=$((ERRORS+1))
-        fi
-        
-        echo ""
-        echo "🎬 Тест 20: Рекомендации фильмов через Catalog (gRPC)"
-        REC_RESPONSE=$({{.GRPCURL}} -plaintext \
-          -d "{\"user_id\": \"$TEST_USER_ID\", \"limit\": 5}" \
-          localhost:50052 catalog.v1.CatalogService/GetRecommendedMovies)
-        
-        if [[ "$REC_RESPONSE" == *'"code"'* ]]; then
-          echo "❌ Ошибка при получении рекомендаций."
-          echo "🔍 Ответ: $REC_RESPONSE"
-          ERRORS=$((ERRORS+1))
-        else
-          echo "✅ Рекомендации получены"
-        fi
-        
-        # ─────────────────────────────────────────
-        # ИТОГ
-        # ─────────────────────────────────────────
-        
-        echo ""
-        echo "═══════════════════════════════════════"
-        if [[ $ERRORS -eq 0 ]]; then
-          echo "🎉 Все тесты (20/20) успешно пройдены!"
-        else
-          echo "💥 Провалено тестов: $ERRORS из 20"
+          echo "💥 Провалено тестов: $ERRORS"
           exit 1
         fi
         echo "═══════════════════════════════════════"

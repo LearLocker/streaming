@@ -35,7 +35,7 @@ func (s *ServiceSuite) TestAddMovieSuccess() {
 
 	s.catalogRepository.On("AddMovie", s.ctx, addMovie).Return(expectedUUID, nil)
 
-	insertedId, err := s.catalogRepository.AddMovie(s.ctx, addMovie)
+	insertedId, err := s.service.AddMovie(s.ctx, addMovie)
 	s.Require().NoError(err)
 	s.Require().NotNil(insertedId)
 	s.Require().Equal(expectedUUID, insertedId)
@@ -70,7 +70,7 @@ func (s *ServiceSuite) TestAddMovieRepoError() {
 
 	s.catalogRepository.On("AddMovie", s.ctx, addMovie).Return("", repoErr)
 
-	res, err := s.catalogRepository.AddMovie(s.ctx, addMovie)
+	res, err := s.service.AddMovie(s.ctx, addMovie)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

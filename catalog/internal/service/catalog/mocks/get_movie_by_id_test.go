@@ -35,7 +35,7 @@ func (s *ServiceSuite) TestGetMovieByIdSuccess() {
 
 	s.catalogRepository.On("GetMovieById", s.ctx, imdbId).Return(modelMovie, nil)
 
-	res, err := s.catalogRepository.GetMovieById(s.ctx, imdbId)
+	res, err := s.service.GetMovieById(s.ctx, imdbId)
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Require().Equal(modelMovie, res)
@@ -46,9 +46,9 @@ func (s *ServiceSuite) TestGetMovieByIdNotFound() {
 		imdbId = gofakeit.UUID()
 	)
 
-	s.catalogRepository.On("GetMovieById", s.ctx, imdbId).Return(model.Movie{}, model.ErrMovieNotFound)
+	s.catalogRepository.On("GetMovieById", s.ctx, imdbId).Return(nil, model.ErrMovieNotFound)
 
-	res, err := s.catalogRepository.GetMovieById(s.ctx, imdbId)
+	res, err := s.service.GetMovieById(s.ctx, imdbId)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -63,9 +63,9 @@ func (s *ServiceSuite) TestGetMovieByIdRepoError() {
 		repoErr = gofakeit.Error()
 	)
 
-	s.catalogRepository.On("GetMovieById", s.ctx, imdbId).Return(model.Movie{}, repoErr)
+	s.catalogRepository.On("GetMovieById", s.ctx, imdbId).Return(nil, repoErr)
 
-	res, err := s.catalogRepository.GetMovieById(s.ctx, imdbId)
+	res, err := s.service.GetMovieById(s.ctx, imdbId)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

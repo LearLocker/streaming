@@ -30,7 +30,7 @@ func (s *ServiceSuite) TestListPlanSuccess() {
 
 	s.catalogRepository.On("ListPlans", s.ctx, active).Return(expectedPlans, nil)
 
-	plans, err := s.catalogRepository.ListPlans(s.ctx, active)
+	plans, err := s.service.ListPlans(s.ctx, active)
 	s.Require().NoError(err)
 	s.Require().NotNil(plans)
 	s.Require().Len(plans, len(expectedPlans))
@@ -45,7 +45,7 @@ func (s *ServiceSuite) TestListPlanRepoError() {
 
 	s.catalogRepository.On("ListPlans", s.ctx, active).Return(nil, repoErr)
 
-	plans, err := s.catalogRepository.ListPlans(s.ctx, active)
+	plans, err := s.service.ListPlans(s.ctx, active)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(plans)
@@ -58,7 +58,7 @@ func (s *ServiceSuite) TestListPlanEmptyResult() {
 
 	s.catalogRepository.On("ListPlans", s.ctx, active).Return([]model.Plan{}, nil)
 
-	plans, err := s.catalogRepository.ListPlans(s.ctx, active)
+	plans, err := s.service.ListPlans(s.ctx, active)
 	s.Require().NoError(err)
 	s.Require().Empty(plans)
 }

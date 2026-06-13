@@ -5,13 +5,13 @@ services: # Раздел, описывающий контейнеры, кото�
     # Используем официальный образ PostgreSQL версии 17 на базе Alpine Linux
     # Это лёгкая и быстрая сборка, которая экономит ресурсы
 
-    container_name: postgres-payment
+    container_name: postgres-subscription
     # Устанавливаем уникальное имя контейнера, чтобы было удобно обращаться к нему в CLI и при отладке
 
     environment: # Переменные окружения, используемые при запуске контейнера
-      POSTGRES_DB: payment-service # Имя базы данных, которая будет создана при запуске
-      POSTGRES_USER: payment-service-user # Имя пользователя, создаваемого в базе
-      POSTGRES_PASSWORD: payment-service-password # Пароль для указанного пользователя
+      POSTGRES_DB: subscription-service # Имя базы данных, которая будет создана при запуске
+      POSTGRES_USER: subscription-service-user # Имя пользователя, создаваемого в базе
+      POSTGRES_PASSWORD: subscription-service-password # Пароль для указанного пользователя
 
     volumes:
       - postgres_subscription_data:/var/lib/postgresql/data
@@ -19,12 +19,12 @@ services: # Раздел, описывающий контейнеры, кото�
       # Он сохраняет данные между перезапусками контейнера
 
     ports:
-      - "5432:5432"
-      # Пробрасываем внутренний порт PostgreSQL (5432) на порт хоста
+      - "5433:5432"
+      # Пробрасываем внутренний порт PostgreSQL (5433) на порт хоста
       # Это нужно, чтобы другие сервисы или инструменты могли подключиться к базе
 
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U payment-service-user -d payment-service" ]
+      test: [ "CMD-SHELL", "pg_isready -U subscription-service-user -d subscription-service" ]
       # Настраиваем проверку готовности контейнера — pg_isready проверяет, принимает ли база подключения
       interval: 10s  # Интервал между проверками — каждые 10 секунд
       timeout: 5s    # Время ожидания ответа от проверки
@@ -36,7 +36,7 @@ services: # Раздел, описывающий контейнеры, кото�
 
     networks:
       - microservices-net
-      # Подключаемся к общей сети, чтобы другие микросервисы (например, subscription-сервис) могли найти этот контейнер по имени "postgres-payment"
+      # Подключаемся к общей сети, чтобы другие микросервисы (например, subscription-сервис) могли найти этот контейнер по имени "postgres-subscription"
 
 volumes: # Раздел с томами — определяем, какие дисковые ресурсы создаёт и использует Docker
   postgres_subscription_data:

@@ -27,10 +27,12 @@ func (s *ServiceSuite) TestUpdateReviewSuccess() {
 		}
 	)
 
-	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(updateReviewModel, nil)
+	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(nil)
 
-	err := s.catalogRepository.UpdateReview(s.ctx, imdbId, authorId, text, ranking)
+	res, err := s.service.UpdateReview(s.ctx, imdbId, authorId, text)
 	s.Require().NoError(err)
+	s.Require().NotNil(res)
+	s.Require().Equal(updateReviewModel, res)
 }
 
 func (s *ServiceSuite) TestUpdateReviewNotFound() {
@@ -45,10 +47,11 @@ func (s *ServiceSuite) TestUpdateReviewNotFound() {
 		}
 	)
 
-	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(nil, model.ErrReviewNotFound)
+	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(model.ErrReviewNotFound)
 
-	err := s.catalogRepository.UpdateReview(s.ctx, imdbId, authorId, text, ranking)
+	res, err := s.service.UpdateReview(s.ctx, imdbId, authorId, text)
 	s.Require().Error(err)
+	s.Require().Nil(res)
 
 	st, ok := status.FromError(err)
 	s.Require().True(ok)
@@ -68,9 +71,10 @@ func (s *ServiceSuite) TestUpdateReviewRepoError() {
 		}
 	)
 
-	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(nil, repoErr)
+	s.catalogRepository.On("UpdateReview", s.ctx, imdbId, authorId, text, ranking).Return(repoErr)
 
-	err := s.catalogRepository.UpdateReview(s.ctx, imdbId, authorId, text, ranking)
+	res, err := s.service.UpdateReview(s.ctx, imdbId, authorId, text)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
+	s.Require().Nil(res)
 }

@@ -15,7 +15,7 @@ func Connect() *mongo.Client {
 		log.Println("Error loading .env file")
 	}
 
-	mongoDbUri := "mongodb:" + os.Getenv("DATABASE_HOST") + ":" + os.Getenv("DATABASE_PORT")
+	mongoDbUri := "mongodb://catalog-service-user:catalog-service-password@mongo-catalog:27017/catalog-service?authSource=admin"
 	if os.Getenv("DATABASE_HOST") == "" || os.Getenv("DATABASE_PORT") == "" {
 		log.Fatal("Error connecting to MongoDB")
 	}

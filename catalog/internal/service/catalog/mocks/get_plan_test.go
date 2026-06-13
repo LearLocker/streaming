@@ -28,7 +28,7 @@ func (s *ServiceSuite) TestGetPlanSuccess() {
 
 	s.catalogRepository.On("GetPlan", s.ctx, planId).Return(modelPlan, nil)
 
-	res, err := s.catalogRepository.GetPlan(s.ctx, planId)
+	res, err := s.service.GetPlan(s.ctx, planId)
 	s.Require().NoError(err)
 	s.Require().NotNil(res)
 	s.Require().Equal(modelPlan, res)
@@ -40,9 +40,9 @@ func (s *ServiceSuite) TestGetPlanNotFound() {
 		planId = gofakeit.UUID()
 	)
 
-	s.catalogRepository.On("GetPlan", s.ctx, planId).Return(model.Plan{}, model.ErrPlanNotFound)
+	s.catalogRepository.On("GetPlan", s.ctx, planId).Return(nil, model.ErrPlanNotFound)
 
-	res, err := s.catalogRepository.GetPlan(s.ctx, planId)
+	res, err := s.service.GetPlan(s.ctx, planId)
 	s.Require().Error(err)
 	s.Require().Nil(res)
 
@@ -57,9 +57,9 @@ func (s *ServiceSuite) TestGetPlanRepoError() {
 		repoErr = gofakeit.Error()
 	)
 
-	s.catalogRepository.On("GetPlan", s.ctx, planId).Return(model.Plan{}, repoErr)
+	s.catalogRepository.On("GetPlan", s.ctx, planId).Return(nil, repoErr)
 
-	res, err := s.catalogRepository.GetPlan(s.ctx, planId)
+	res, err := s.service.GetPlan(s.ctx, planId)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(res)

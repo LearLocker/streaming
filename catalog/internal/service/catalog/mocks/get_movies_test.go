@@ -27,13 +27,13 @@ func (s *ServiceSuite) TestGetMoviesSuccess() {
 		}
 	)
 
-	s.catalogRepository.On("GetMovies", s.ctx, filter).Return(expectedMovies, nil)
+	s.catalogRepository.On("GetMovies", s.ctx, filter).Return(expectedMovies, 1, nil)
 
-	movies, total, err := s.catalogRepository.GetMovies(s.ctx, filter)
+	movies, total, err := s.service.GetMovies(s.ctx, filter)
 	s.Require().NoError(err)
 	s.Require().NotNil(movies)
 	s.Require().Len(movies, len(expectedMovies))
-	s.Require().Equal(total, 2)
+	s.Require().Equal(total, 1)
 	s.Require().Equal(expectedMovies, movies)
 }
 
@@ -52,7 +52,7 @@ func (s *ServiceSuite) TestGetMoviesNoGenreFilter() {
 
 	s.catalogRepository.On("GetMovies", s.ctx, filter).Return(expectedMovies, nil)
 
-	movies, total, err := s.catalogRepository.GetMovies(s.ctx, filter)
+	movies, total, err := s.service.GetMovies(s.ctx, filter)
 	s.Require().NoError(err)
 	s.Require().Len(movies, 2)
 	s.Require().Equal(total, 2)
@@ -68,7 +68,7 @@ func (s *ServiceSuite) TestGetMoviesEmptyResult() {
 
 	s.catalogRepository.On("GetMovies", s.ctx, filter).Return([]*model.Movie{}, nil)
 
-	movies, total, err := s.catalogRepository.GetMovies(s.ctx, filter)
+	movies, total, err := s.service.GetMovies(s.ctx, filter)
 	s.Require().NoError(err)
 	s.Require().Empty(movies)
 	s.Require().Equal(total, 0)
@@ -85,7 +85,7 @@ func (s *ServiceSuite) TestGetMoviesRepoError() {
 
 	s.catalogRepository.On("GetMovies", s.ctx, filter).Return(nil, repoErr)
 
-	movies, total, err := s.catalogRepository.GetMovies(s.ctx, filter)
+	movies, total, err := s.service.GetMovies(s.ctx, filter)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(movies)

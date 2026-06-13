@@ -21,7 +21,7 @@ func (s *ServiceSuite) TestGetGenresSuccess() {
 
 	s.catalogRepository.On("GetGenres", s.ctx).Return(expectedGenres, nil)
 
-	genres, err := s.catalogRepository.GetGenres(s.ctx)
+	genres, err := s.service.GetGenres(s.ctx)
 	s.Require().NoError(err)
 	s.Require().NotNil(genres)
 	s.Require().Len(genres, len(expectedGenres))
@@ -35,7 +35,7 @@ func (s *ServiceSuite) TestGetGenresRepoError() {
 
 	s.catalogRepository.On("GetGenres", s.ctx).Return(nil, repoErr)
 
-	genres, err := s.catalogRepository.GetGenres(s.ctx)
+	genres, err := s.service.GetGenres(s.ctx)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(genres)
@@ -44,7 +44,7 @@ func (s *ServiceSuite) TestGetGenresRepoError() {
 func (s *ServiceSuite) TestGetGenresEmptyList() {
 	s.catalogRepository.On("GetGenres", s.ctx).Return([]model.Genre{}, nil)
 
-	genres, err := s.catalogRepository.GetGenres(s.ctx)
+	genres, err := s.service.GetGenres(s.ctx)
 	s.Require().NoError(err)
 	s.Require().NotNil(genres)
 	s.Require().Empty(genres)

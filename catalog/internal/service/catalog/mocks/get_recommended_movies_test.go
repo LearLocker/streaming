@@ -12,9 +12,11 @@ func (s *ServiceSuite) TestGetRecommendedMoviesSuccess() {
 
 		// GetRecommendedMovies внутри запрашивает жанры пользователя,
 		// поэтому мокаем репозиторий на оба вызова
-		userGenres = []model.Genre{
-			{GenreID: gofakeit.IntRange(1, 20), GenreName: gofakeit.MovieGenre()},
-			{GenreID: gofakeit.IntRange(1, 20), GenreName: gofakeit.MovieGenre()},
+		genreFirst  = gofakeit.MovieGenre()
+		genreSecond = gofakeit.MovieGenre()
+		userGenres  = []string{
+			genreFirst,
+			genreSecond,
 		}
 
 		expectedMovies = []*model.Movie{
@@ -22,6 +24,9 @@ func (s *ServiceSuite) TestGetRecommendedMoviesSuccess() {
 				ImdbID:     gofakeit.UUID(),
 				Title:      gofakeit.MovieName(),
 				PosterPath: gofakeit.ImageURL(1920, 1080),
+				Genre: []model.Genre{
+					{GenreID: gofakeit.IntRange(1, 20), GenreName: genreFirst},
+				},
 				Ranking: model.Ranking{
 					RankingValue: gofakeit.IntRange(1, 100),
 					RankingName:  gofakeit.Word(),
@@ -31,14 +36,17 @@ func (s *ServiceSuite) TestGetRecommendedMoviesSuccess() {
 				ImdbID:     gofakeit.UUID(),
 				Title:      gofakeit.MovieName(),
 				PosterPath: gofakeit.ImageURL(1920, 1080),
+				Genre: []model.Genre{
+					{GenreID: gofakeit.IntRange(1, 20), GenreName: genreSecond},
+				},
 			},
 		}
 	)
 
-	s.catalogRepository.On("GetUsersFavouriteGenres", s.ctx, UserID).Return(userGenres, nil)
-	s.catalogRepository.On("GetRecommendedMovies", s.ctx, userGenres, Limit).Return(expectedMovies, nil)
+	s.catalogRepository.On("GetUserFavouriteGenres", s.ctx, UserID).Return(userGenres, nil)
+	s.catalogRepository.On("GetRecommendedMovies", s.ctx, UserID, Limit).Return(expectedMovies, nil)
 
-	movies, err := s.catalogRepository.GetRecommendedMovies(s.ctx, UserID, Limit)
+	movies, err := s.service.GetRecommendedMovies(s.ctx, UserID, Limit)
 	s.Require().NoError(err)
 	s.Require().NotNil(movies)
 	s.Require().Len(movies, len(expectedMovies))
@@ -53,9 +61,9 @@ func (s *ServiceSuite) TestGetRecommendedMoviesGetGenresError() {
 	)
 
 	// Ошибка на первом шаге — за жанрами идти не должен
-	s.catalogRepository.On("GetUsersFavouriteGenres", s.ctx, UserID).Return(nil, repoErr)
+	s.catalogRepository.On("GetUserFavouriteGenres", s.ctx, UserID).Return(nil, repoErr)
 
-	movies, err := s.catalogRepository.GetRecommendedMovies(s.ctx, UserID, Limit)
+	movies, err := s.service.GetRecommendedMovies(s.ctx, UserID, Limit)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(movies)
@@ -67,15 +75,15 @@ func (s *ServiceSuite) TestGetRecommendedMoviesGetMoviesError() {
 		UserID  = gofakeit.UUID()
 		Limit   = int32(10)
 
-		userGenres = []model.Genre{
-			{GenreID: gofakeit.IntRange(1, 20), GenreName: gofakeit.MovieGenre()},
+		userGenres = []string{
+			gofakeit.MovieGenre(),
 		}
 	)
 
-	s.catalogRepository.On("GetUsersFavouriteGenres", s.ctx, UserID).Return(userGenres, nil)
-	s.catalogRepository.On("GetRecommendedMovies", s.ctx, userGenres, Limit).Return(nil, repoErr)
+	s.catalogRepository.On("GetUserFavouriteGenres", s.ctx, UserID).Return(userGenres, nil)
+	s.catalogRepository.On("GetRecommendedMovies", s.ctx, UserID, Limit).Return(nil, repoErr)
 
-	movies, err := s.catalogRepository.GetRecommendedMovies(s.ctx, UserID, Limit)
+	movies, err := s.service.GetRecommendedMovies(s.ctx, UserID, Limit)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, repoErr)
 	s.Require().Nil(movies)
@@ -86,13 +94,13 @@ func (s *ServiceSuite) TestGetRecommendedMoviesEmptyGenres() {
 		UserID = gofakeit.UUID()
 		Limit  = int32(10)
 
-		emptyGenres = []model.Genre{}
+		emptyGenres []string
 	)
 
-	s.catalogRepository.On("GetUsersFavouriteGenres", s.ctx, UserID).Return(emptyGenres, nil)
-	s.catalogRepository.On("GetRecommendedMovies", s.ctx, emptyGenres, Limit).Return([]*model.Movie{}, nil)
+	s.catalogRepository.On("GetUserFavouriteGenres", s.ctx, UserID).Return(emptyGenres, nil)
+	s.catalogRepository.On("GetRecommendedMovies", s.ctx, UserID, Limit).Return([]*model.Movie{}, nil)
 
-	movies, err := s.catalogRepository.GetRecommendedMovies(s.ctx, UserID, Limit)
+	movies, err := s.service.GetRecommendedMovies(s.ctx, UserID, Limit)
 	s.Require().NoError(err)
 	s.Require().Empty(movies)
 }
